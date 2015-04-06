@@ -46,8 +46,25 @@ public class Client {
 		JsonParser jp = jf.createParser(json);
 		jp.nextToken();
 		while(jp.nextToken() != JsonToken.END_OBJECT) {
-			 // TODO
+			 String fieldname = jp.getCurrentName();
+			 jp.nextToken();
+			 if("ComeBackInSeconds".equals(fieldname)) {
+				 task.setComeBackInSeconds(jp.getIntValue());
+			 } else if("JobId".equals(fieldname)) {
+				 task.setJobId(jp.getLongValue());
+			 } else if("WorkerVersion".equals(fieldname)) {
+				 task.setWorkerVersion(jp.getText()); 
+			 } else if("WorkerURL".equals(fieldname)) {
+				 task.setWorkerURL(jp.getText());
+			 } else if("WorkerClassName".equals(fieldname)) {
+				 task.setWorkerClassName(jp.getText());
+			 } else if("Task".equals(fieldname)) {
+				 task.setTask(jp.getIntValue());
+			 } else {
+				 throw new IllegalStateException("Unrecognized field name: "+fieldname);
+			 }
 		}
+		jp.close();
 		return task;
 	}
 
@@ -75,13 +92,16 @@ public class Client {
 		ByteBuffer content = reader.readBytes(header.getContentLength());
 
 		// parse json
-		Task task = parse(content);
-
-		return task;
+		return parse(content);
 	}
 
 	public void sendAnswer(String answer) {
 		// TODO Auto-generated method stub
+		// test si la réponse fait la bonne taille
+		// test si c'est bien du json
+		// test si y'a pas d'OBJECT dans la réponse
+		// test si la réponse n'est pas null
 		
+		// construit la réponse JSON et envoie
 	}
 }

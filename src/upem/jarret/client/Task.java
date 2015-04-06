@@ -1,21 +1,21 @@
 package upem.jarret.client;
 
 public class Task {
-	private String _JobId;
+	private long _JobId;
 	private String _WorkerVersion;
 	private String _WorkerURL;
 	private String _WorkerClassName;
 	private int _Task;
-	private int _ComeBackInSeconds;
+	private int _ComeBackInSeconds = -1;
 	
-	public String getJobId() { return _JobId; }
+	public long getJobId() { return _JobId; }
 	public String getWorkerVersion() { return _WorkerVersion; }
 	public String getWorkerURL() { return _WorkerURL; }
 	public String getWorkerClassName() { return _WorkerClassName; }
 	public int getTask() { return _Task; }
 	public int getComeBackInSeconds() { return _ComeBackInSeconds; }
 	
-	public void setJobId(String jobId) { _JobId = jobId; }
+	public void setJobId(long jobId) { _JobId = jobId; }
 	public void setWorkerVersion(String wv) { _WorkerVersion = wv; }
 	public void setWorkerURL(String wURL) { _WorkerURL = wURL; }
 	public void setWorkerClassName(String wcn) { _WorkerClassName = wcn; }
