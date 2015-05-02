@@ -1,5 +1,6 @@
 package upem.jarret.client;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -13,7 +14,7 @@ import upem.jarret.worker.Worker;
 import upem.jarret.worker.WorkerFactory;
 
 import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerationException;
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -120,32 +121,116 @@ public class Client {
 			} catch (Exception e) {
 				answer = null;
 			}
-			sendAnswer(answer);
+			sendAnswer(task, answer);
+			checkCode();
+			break;
 		} while (true);
 	}
 
-	private void sendAnswer(String answer) throws JsonGenerationException {
-		// TODO Auto-generated method stub
-		// test si la r�ponse fait la bonne taille
-		// test si c'est bien du json
-		// test si y'a pas d'OBJECT dans la r�ponse
-		// test si la r�ponse n'est pas null
+	private void checkCode() throws IOException {
+		//TODO
+    }
 
-		// construit la r�ponse JSON et envoie
+	private String checkError(String answer) throws JsonParseException, IOException {
+		// TODO
+		if (answer == null) {
+			return "Computation error";
+		}
 
+		if (!isJSON(answer)) {
+			return "Answer is not valid JSON";
+		}
+
+		if (isNested(answer)) {
+			return "Answer is nested";
+		}
+
+		return null;
+	}
+
+	private boolean isJSON(String string) throws JsonParseException, IOException {
+
+		return true;
+	}
+
+	private boolean isNested(String json) throws JsonParseException, IOException {
+		JsonFactory jf = new JsonFactory();
+		JsonParser jp = jf.createParser(json);
+		JsonToken token = jp.nextToken();
+
+		while (token != null) {
+			if (token == JsonToken.START_OBJECT) {
+				return false;
+			}
+			token = jp.nextToken();
+		}
+		return true;
+	}
+
+	private String createRequest(Task task, String answer, String error) throws IOException {
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		JsonFactory jf = new JsonFactory();
+		JsonGenerator jg = jf.createGenerator(baos);
+
+		jg.writeStartObject();
+
+		jg.writeStringField("JobId", String.valueOf(task.getJobId()));
+		jg.writeStringField("WorkerVersion", task.getWorkerVersion());
+		jg.writeStringField("WorkerURL", task.getWorkerURL());
+		jg.writeStringField("WorkerClassName", task.getWorkerClassName());
+		jg.writeStringField("Task", String.valueOf(task.getTask()));
+		jg.writeStringField("ClientId", id);
+
+		if (error == null) {
+			jg.writeFieldName("Answer");
+			jg.writeRawValue(answer);
+		} else {
+			jg.writeStringField("Error", error);
+		}
+
+		jg.writeEndObject();
+		jg.close();
+		
+		String json = baos.toString();
+		ByteBuffer jsonBuffer = charsetUTF8.encode(json);
+		String header = "POST Answer HTTP/1.1\r\nHost: " + sa.getAddress() + "\r\nContent-Type: application/json\r\nContent-Length: " + jsonBuffer.remaining() + "\r\n\r\n";
+		
+		return header + json;
+	}
+	
+	private void sendAnswer(Task task, String answer) throws IOException {
+		String error = checkError(answer);
+		String request = createRequest(task, answer, error);
+		
+		ByteBuffer bb = charsetUTF8.encode(request);
+		
+		if(bb.remaining() > 4096) {
+			System.err.println("Too long");
+			error = "Too Long";
+			request = createRequest(task, answer, error);
+			bb = charsetUTF8.encode(request);
+		}
+		
+		System.out.println(request);
+		
+		sc.write(bb);
 	}
 
 	public static void main(String[] args) throws JsonParseException, IOException, ClassNotFoundException,
-	        IllegalAccessException, InstantiationException {
-		String json = "{\"JobId\":11,\"WorkerVersion\":\"1.0\",\"WorkerURL\":\"http://igm.univ-mlv.fr/~carayol/WorkerPrimeV1.jar\",\"WorkerClassName\":\"upem.workerprime.WorkerPrime\",\"Task\":100}";
-		Task task = parse(json);
-		System.out.println("jobId: " + task.getJobId());
-		System.out.println("worker: " + task.getWorkerClassName() + ", " + task.getWorkerVersion() + ", "
-		        + task.getWorkerURL());
-		System.out.println("task: " + task.getTask());
-		Worker worker = null;
-		worker = WorkerFactory.getWorker(task.getWorkerURL(), task.getWorkerClassName());
-		System.out.println(worker.compute(task.getTask()));
+	        IllegalAccessException, InstantiationException, InterruptedException {
+//		String json = "{\"JobId\":11,\"WorkerVersion\":\"1.0\",\"WorkerURL\":\"http://igm.univ-mlv.fr/~carayol/WorkerPrimeV1.jar\",\"WorkerClassName\":\"upem.workerprime.WorkerPrime\",\"Task\":100}";
+//		Task task = parse(json);
+//		System.out.println("jobId: " + task.getJobId());
+//		System.out.println("worker: " + task.getWorkerClassName() + ", " + task.getWorkerVersion() + ", "
+//		        + task.getWorkerURL());
+//		System.out.println("task: " + task.getTask());
+//		Worker worker = null;
+//		worker = WorkerFactory.getWorker(task.getWorkerURL(), task.getWorkerClassName());
+//		System.out.println(worker.compute(task.getTask()));
+		
+		
+		Client client = new Client("Bob", "ns364759.ip-91-121-196.eu", 8080);
+		client.interact();
 	}
 
 }
