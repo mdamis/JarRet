@@ -6,7 +6,7 @@ public class Task {
 	private String _WorkerURL;
 	private String _WorkerClassName;
 	private String _Task;
-	private int _ComeBackInSeconds = -1;
+	private int _ComeBackInSeconds = 300;
 
 	public long getJobId() {
 		return Long.parseLong(_JobId);

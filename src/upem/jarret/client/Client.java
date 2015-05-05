@@ -37,8 +37,7 @@ public class Client {
 	/**
 	 * Parses buffer content with Jackson Streaming API
 	 * 
-	 * @param content
-	 *            JSOn to parse
+	 * @param content JSOn to parse
 	 * @return task data parsed
 	 * @throws IOException
 	 * @throws JsonParseException
@@ -55,6 +54,7 @@ public class Client {
 				task.setComeBackInSeconds(jp.getIntValue());
 			} else if ("JobId".equals(fieldname)) {
 				task.setJobId(jp.getText());
+				task.setComeBackInSeconds(-1);
 			} else if ("WorkerVersion".equals(fieldname)) {
 				task.setWorkerVersion(jp.getText());
 			} else if ("WorkerURL".equals(fieldname)) {
@@ -98,41 +98,19 @@ public class Client {
 		return parse(charsetUTF8.decode(content).toString());
 	}
 
-	public void interact() throws IOException, InterruptedException, ClassNotFoundException, IllegalAccessException,
-	        InstantiationException {
-		Task task;
-		Worker worker = null;
-		do {
-			while (true) {
-				task = requestTask();
-				try {
-					Thread.sleep(task.getComeBackInSeconds());
-				} catch (IllegalArgumentException e) {
-					break;
-				}
-			}
-			if (worker == null || task.getWorkerVersion() != worker.getVersion()
-			        || task.getJobId() != worker.getJobId()) {
-				worker = WorkerFactory.getWorker(task.getWorkerURL(), task.getWorkerClassName());
-			}
-			String answer;
-			try {
-				answer = worker.compute(task.getTask());
-			} catch (Exception e) {
-				answer = null;
-			}
-			sendAnswer(task, answer);
-			checkCode();
-			break;
-		} while (true);
-	}
-
 	private void checkCode() throws IOException {
 		//TODO
     }
 
+	/**
+	 * Tests if there are errors in the answer
+	 * 
+	 * @param answer String to test
+	 * @return	the error message
+	 * @throws JsonParseException if the parsing went wrong
+	 * @throws IOException if something went wrong
+	 */
 	private String checkError(String answer) throws JsonParseException, IOException {
-		// TODO
 		if (answer == null) {
 			return "Computation error";
 		}
@@ -148,25 +126,57 @@ public class Client {
 		return null;
 	}
 
-	private boolean isJSON(String string) throws JsonParseException, IOException {
-
-		return true;
-	}
-
-	private boolean isNested(String json) throws JsonParseException, IOException {
+	/**
+	 * Tests if the string is in json
+	 * 
+	 * @param string to test
+	 * @return true if the string is in json, false otherwise
+	 * @throws IOException if something went wrong
+	 */
+	private boolean isJSON(String string) throws IOException {
 		JsonFactory jf = new JsonFactory();
-		JsonParser jp = jf.createParser(json);
-		JsonToken token = jp.nextToken();
-
-		while (token != null) {
-			if (token == JsonToken.START_OBJECT) {
-				return false;
+		JsonParser jp = jf.createParser(string);
+		try {
+			jp.nextToken();
+			while(jp.nextToken() != JsonToken.END_OBJECT) {
+				jp.nextToken();
 			}
-			token = jp.nextToken();
+		} catch (JsonParseException jpe) {
+			return false;
 		}
 		return true;
 	}
 
+	/**
+	 * Tests if the string is nested
+	 * 
+	 * @param json the string to test
+	 * @return true if the string is nested, false otherwise
+	 * @throws JsonParseException if the parsing went wrong
+	 * @throws IOException if something went wrong
+	 */
+	private boolean isNested(String json) throws JsonParseException, IOException {
+		JsonFactory jf = new JsonFactory();
+		JsonParser jp = jf.createParser(json);
+		jp.nextToken();
+		
+		while ((jp.nextToken()) != JsonToken.END_OBJECT) {
+			if ((jp.nextToken()) == JsonToken.START_OBJECT) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Creates the string answer to POST
+	 * 
+	 * @param task the task the client work on
+	 * @param answer the answer the worker calculates
+	 * @param error the error message is there is one
+	 * @return the request
+	 * @throws IOException if something went wrong
+	 */
 	private String createRequest(Task task, String answer, String error) throws IOException {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		JsonFactory jf = new JsonFactory();
@@ -198,6 +208,13 @@ public class Client {
 		return header + json;
 	}
 	
+	/**
+	 * Sends the answer to the server
+	 * 
+	 * @param task
+	 * @param answer
+	 * @throws IOException
+	 */
 	private void sendAnswer(Task task, String answer) throws IOException {
 		String error = checkError(answer);
 		String request = createRequest(task, answer, error);
@@ -216,6 +233,53 @@ public class Client {
 		sc.write(bb);
 	}
 
+	/**
+	 * Interacts with the server
+	 * 
+	 * @throws IOException if something went wrong
+	 * @throws InterruptedException if the something is interrupted
+	 * @throws ClassNotFoundException if the class was not found
+	 * @throws IllegalAccessException if the class is not accessible
+	 * @throws InstantiationException if the instantiation went wrong
+	 */
+	public void interact() throws IOException, InterruptedException, ClassNotFoundException, IllegalAccessException,
+	        InstantiationException {
+		Task task = new Task();
+		Worker worker = null;
+		do {
+			while (true) {
+				try {
+					task = requestTask();
+				} catch(IllegalArgumentException e) {
+					System.err.println(e.getMessage());
+					task.setComeBackInSeconds(300);
+				} catch(UnexpectedException e) {
+					System.err.println(e.getMessage());
+					task.setComeBackInSeconds(300);
+				}
+				try {
+					Thread.sleep(task.getComeBackInSeconds());
+				} catch (IllegalArgumentException e) {
+					break;
+				}
+			}
+			if (worker == null || task.getWorkerVersion() != worker.getVersion()
+			        || task.getJobId() != worker.getJobId()) {
+				worker = WorkerFactory.getWorker(task.getWorkerURL(), task.getWorkerClassName());
+			}
+			String answer;
+			try {
+				answer = worker.compute(task.getTask());
+			} catch (Exception e) {
+				answer = null;
+			}
+			sendAnswer(task, answer);
+			checkCode();
+			// Une tache par client pour l'instant
+			break;
+		} while (true);
+	}
+
 	public static void main(String[] args) throws JsonParseException, IOException, ClassNotFoundException,
 	        IllegalAccessException, InstantiationException, InterruptedException {
 //		String json = "{\"JobId\":11,\"WorkerVersion\":\"1.0\",\"WorkerURL\":\"http://igm.univ-mlv.fr/~carayol/WorkerPrimeV1.jar\",\"WorkerClassName\":\"upem.workerprime.WorkerPrime\",\"Task\":100}";
@@ -229,7 +293,7 @@ public class Client {
 //		System.out.println(worker.compute(task.getTask()));
 		
 		
-		Client client = new Client("Bob", "ns364759.ip-91-121-196.eu", 8080);
+		Client client = new Client("BastienMarwin", "ns364759.ip-91-121-196.eu", 8080);
 		client.interact();
 	}
 
