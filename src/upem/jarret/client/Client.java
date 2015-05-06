@@ -99,7 +99,10 @@ public class Client {
 	}
 
 	private void checkCode() throws IOException {
-		//TODO
+		ByteBuffer bb = ByteBuffer.allocate(50);
+		HTTPReader reader = new HTTPReader(sc, bb);
+		HTTPHeader header = reader.readHeader();
+		System.out.println("Answer from server : " + header.getCode());
     }
 
 	/**
