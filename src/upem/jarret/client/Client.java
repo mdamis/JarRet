@@ -25,13 +25,11 @@ public class Client {
 
 	private final String id;
 	private final InetSocketAddress sa;
-	private final SocketChannel sc;
+	private SocketChannel sc;
 
 	public Client(String id, String serverAddress, int port) throws IOException {
 		this.id = id;
 		sa = new InetSocketAddress(serverAddress, port);
-		sc = SocketChannel.open();
-		sc.connect(sa);
 	}
 
 	/**
@@ -103,6 +101,7 @@ public class Client {
 		HTTPReader reader = new HTTPReader(sc, bb);
 		HTTPHeader header = reader.readHeader();
 		System.out.println("Answer from server : " + header.getCode());
+		//reader.readLineCRLF();
     }
 
 	/**
@@ -206,7 +205,7 @@ public class Client {
 		
 		String json = baos.toString();
 		ByteBuffer jsonBuffer = charsetUTF8.encode(json);
-		String header = "POST Answer HTTP/1.1\r\nHost: " + sa.getAddress() + "\r\nContent-Type: application/json\r\nContent-Length: " + jsonBuffer.remaining() + "\r\n\r\n";
+		String header = "POST Answer HTTP/1.1\r\nHost: " + sa.getHostName() + "\r\nContent-Type: application/json\r\nContent-Length: " + jsonBuffer.remaining() + "\r\n\r\n";
 		
 		return header + json;
 	}
@@ -250,6 +249,8 @@ public class Client {
 		Task task = new Task();
 		Worker worker = null;
 		do {
+			sc = SocketChannel.open();
+			sc.connect(sa);
 			while (true) {
 				try {
 					task = requestTask();
@@ -279,7 +280,8 @@ public class Client {
 			sendAnswer(task, answer);
 			checkCode();
 			// Une tache par client pour l'instant
-			break;
+			//break;
+			sc.close();
 		} while (true);
 	}
 
