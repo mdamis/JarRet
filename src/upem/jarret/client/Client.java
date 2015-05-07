@@ -84,6 +84,7 @@ public class Client {
 		ByteBuffer bb = ByteBuffer.allocate(50);
 		HTTPReader reader = new HTTPReader(sc, bb);
 		HTTPHeader header = reader.readHeader();
+		System.out.println(header.toString());
 		if (header.getCode() == 400) {
 			throw new IllegalArgumentException("Bad request: " + request);
 		} else if (header.getCode() != 200) {
@@ -298,7 +299,8 @@ public class Client {
 //		System.out.println(worker.compute(task.getTask()));
 		
 		
-		Client client = new Client("BastienMarwin", "ns364759.ip-91-121-196.eu", 8080);
+		//Client client = new Client("BastienMarwin", "ns364759.ip-91-121-196.eu", 8080);
+		Client client = new Client("BastienMarwin", "localhost", 7777);
 		client.interact();
 	}
 

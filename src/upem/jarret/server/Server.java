@@ -11,9 +11,11 @@ import java.nio.charset.Charset;
 import java.util.Scanner;
 import java.util.Set;
 
+import upem.jarret.http.HTTPReader;
+
 public class Server {
-	private static final Charset charsetASCII = Charset.forName("ASCII");
-	private static final Charset charsetUTF8 = Charset.forName("utf-8");
+	static final Charset charsetASCII = Charset.forName("ASCII");
+	static final Charset charsetUTF8 = Charset.forName("utf-8");
 	private static final String badRequest = "HTTP/1.1 400 Bad Request\r\n\r\n";
 	
 	private final ServerSocketChannel ssc;
@@ -103,7 +105,7 @@ public class Server {
 		}
 	}
 
-	private void processSelectedKeys() throws IOException {
+	private void processSelectedKeys() {
 		for (SelectionKey key : selectedKeys) {
 			if (key.isValid() && key.isAcceptable()) {
 				try {
@@ -113,10 +115,20 @@ public class Server {
 				}
 			}
 			if (key.isValid() && key.isWritable()) {
-				doWrite(key);
+				try{
+					doWrite(key);
+				} catch(IOException e) {
+					key.cancel();
+					System.out.println("Connection lost with client");
+				}
 			}
 			if (key.isValid() && key.isReadable()) {
-				doRead(key);
+				try {
+					doRead(key);
+				} catch (IOException e) {
+					key.cancel();
+					System.out.println("Connection lost with client");
+				}
 			}
 		}
 	}
@@ -127,7 +139,7 @@ public class Server {
 			return;
 		}
 		sc.configureBlocking(false);
-		sc.register(selector, SelectionKey.OP_READ, new Attachment());
+		sc.register(selector, SelectionKey.OP_READ, new Attachment(sc));
 		System.out.println("New connection from "+sc.getRemoteAddress());
 	}
 
@@ -135,13 +147,14 @@ public class Server {
 		SocketChannel sc = (SocketChannel) key.channel();
 		Attachment attachment = (Attachment) key.attachment();
 		ByteBuffer bb = attachment.getBb();
+		HTTPReader reader = attachment.getReader();
 		
 		bb.clear();
-		sc.read(bb);
+		String line = reader.readLineCRLF();
 		bb.flip();
 		
 		try {
-			parserequest(charsetASCII.decode(bb).toString(), attachment);
+			parserequest(line, attachment);
 		} catch (Exception e){
 			sc.write(charsetUTF8.encode(badRequest));
 			return;
@@ -174,11 +187,12 @@ public class Server {
 		
 	}
 
-	private void doWrite(SelectionKey key) {
+	private void doWrite(SelectionKey key) throws IOException {
 		Attachment attachment = (Attachment) key.attachment();
 		
 		if(attachment.isRequestingTask()) {
-			attachment.sendTask();
+			attachment.sendTask((SocketChannel)key.channel());
+			System.out.println("task send");
 			key.interestOps(SelectionKey.OP_READ);
 		} else if(attachment.isSendingPost()) {
 			attachment.sendCheckCode();
