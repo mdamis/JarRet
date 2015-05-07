@@ -47,6 +47,15 @@ public class Server {
 		selector = Selector.open();
 		selectedKeys = selector.selectedKeys();
 	}
+	
+	static boolean readFully(ByteBuffer bb, SocketChannel sc) throws IOException {
+        while(sc.read(bb) != -1) {
+            if(!bb.hasRemaining()) {
+                return true;
+            }
+        }
+        return false;
+    }
 
 	private void info() {
 		System.out.println("INFO");
@@ -80,10 +89,12 @@ public class Server {
 	}
 
 	public void launch() throws IOException {
+		consoleThread.setDaemon(true);
 		consoleThread.start();
 
 		ssc.configureBlocking(false);
 		ssc.register(selector, SelectionKey.OP_ACCEPT);
+		System.out.println("Server launched on port "+ssc.getLocalAddress());
 		Set<SelectionKey> selectedKeys = selector.selectedKeys();
 		while (!Thread.interrupted()) {
 			selector.select();
@@ -130,14 +141,17 @@ public class Server {
 		bb.flip();
 		
 		try {
-			parserequest(charsetASCII.decode(bb).toString());
+			parserequest(charsetASCII.decode(bb).toString(), attachment);
 		} catch (Exception e){
 			sc.write(charsetUTF8.encode(badRequest));
 			return;
 		}
+		
+		key.interestOps(SelectionKey.OP_WRITE);
 	}
 
-	private void parserequest(String request) {
+	private void parserequest(String request, Attachment attachment) throws IOException {
+		System.out.println("request: "+request);
 		String[] lines = request.split("\r\n");
 		
 		String[] token  = lines[0].split(" ");
@@ -146,25 +160,30 @@ public class Server {
 		String protocol = token[2];
 		
 		if(cmd.equals("GET") && requested.equals("Task") && protocol.equals("HTTP/1.1")) {
-			parseGET(lines[1]);
+			attachment.requestTask();
 		} else if(cmd.equals("POST") && requested.equals("Answer") && protocol.equals("HTTP/1.1")) {
-			parsePOST();
+			parsePOST(lines, attachment);
+			attachment.requestAnswer();
+		} else {
+			throw new IllegalArgumentException();
 		}
 	}
 
-	private void parsePOST() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	private void parseGET(String string) {
+	private void parsePOST(String[] lines, Attachment attachment) {
 		// TODO Auto-generated method stub
 		
 	}
 
 	private void doWrite(SelectionKey key) {
-		// TODO Auto-generated method stub
-
+		Attachment attachment = (Attachment) key.attachment();
+		
+		if(attachment.isRequestingTask()) {
+			attachment.sendTask();
+			key.interestOps(SelectionKey.OP_READ);
+		} else if(attachment.isSendingPost()) {
+			attachment.sendCheckCode();
+			key.interestOps(0);
+		}
 	}
 
 	private void close(SelectionKey key) throws IOException {
