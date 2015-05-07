@@ -11,6 +11,7 @@ public class Attachment {
 	private HTTPReader reader;
 	private boolean requestingTask = false;
 	private boolean sendingPost = false;
+	private String answer = null;
 	
 	public Attachment(SocketChannel sc) {
 		reader = new HTTPReader(sc, bb);
@@ -33,8 +34,9 @@ public class Attachment {
 		this.requestingTask = requestingTask;
 	}
 
-	public void requestAnswer() {
-		System.out.println("Client sending an answer");
+	public void requestAnswer(String answer) {
+		System.out.println("Client sending an answer: "+answer);
+		this.answer = answer;
 		setSendingPost(true);
 	}
 
@@ -49,7 +51,9 @@ public class Attachment {
 	public void sendCheckCode() {
 		setSendingPost(false);
 		// TODO Auto-generated method stub
-		
+		if(answer == null) {
+			throw new IllegalArgumentException("No answer");
+		}
 	}
 
 	public void sendTask(SocketChannel sc) throws IOException {

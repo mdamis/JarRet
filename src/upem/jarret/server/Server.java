@@ -8,6 +8,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
+import java.util.Objects;
 import java.util.Scanner;
 import java.util.Set;
 
@@ -149,9 +150,9 @@ public class Server {
 		ByteBuffer bb = attachment.getBb();
 		HTTPReader reader = attachment.getReader();
 		
-		bb.clear();
+		//bb.clear();
 		String line = reader.readLineCRLF();
-		bb.flip();
+		//bb.flip();
 		
 		try {
 			parserequest(line, attachment);
@@ -175,16 +176,33 @@ public class Server {
 		if(cmd.equals("GET") && requested.equals("Task") && protocol.equals("HTTP/1.1")) {
 			attachment.requestTask();
 		} else if(cmd.equals("POST") && requested.equals("Answer") && protocol.equals("HTTP/1.1")) {
-			parsePOST(lines, attachment);
-			attachment.requestAnswer();
+			String answer = parsePOST(attachment);
+			Objects.requireNonNull(answer);
+			attachment.requestAnswer(answer);
 		} else {
 			throw new IllegalArgumentException();
 		}
 	}
 
-	private void parsePOST(String[] lines, Attachment attachment) {
-		// TODO Auto-generated method stub
-		
+	private String parsePOST(Attachment attachment) throws IOException {
+		HTTPReader reader = attachment.getReader();
+		String line;
+		int content_length = 0;
+		while(!(line = reader.readLineCRLF()).equals("")) {
+			System.out.println(line);
+			String[] token = line.split(": ");
+			if(token[0].equals("Content-Length")) {
+				content_length = Integer.parseInt(token[1]);
+			}
+			if(token[0].equals("Content-Type")) {
+				if(!token[1].equals("application/json")){
+					throw new IllegalArgumentException();
+				}
+			}
+		}
+		ByteBuffer bb = reader.readBytes(content_length);
+		bb.flip();
+		return charsetUTF8.decode(bb).toString();
 	}
 
 	private void doWrite(SelectionKey key) throws IOException {
