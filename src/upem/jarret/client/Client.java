@@ -180,7 +180,7 @@ public class Client {
 	 * @return the request
 	 * @throws IOException if something went wrong
 	 */
-	private String createRequest(Task task, String answer, String error) throws IOException {
+	private ByteBuffer createRequest(Task task, String answer, String error) throws IOException {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		JsonFactory jf = new JsonFactory();
 		JsonGenerator jg = jf.createGenerator(baos);
@@ -205,10 +205,10 @@ public class Client {
 		jg.close();
 		
 		String json = baos.toString();
+		System.out.println(json);
 		ByteBuffer jsonBuffer = charsetUTF8.encode(json);
-		String header = "POST Answer HTTP/1.1\r\nHost: " + sa.getHostName() + "\r\nContent-Type: application/json\r\nContent-Length: " + jsonBuffer.remaining() + "\r\n\r\n";
 		
-		return header + json;
+		return jsonBuffer;
 	}
 	
 	/**
@@ -219,21 +219,24 @@ public class Client {
 	 * @throws IOException
 	 */
 	private void sendAnswer(Task task, String answer) throws IOException {
-		String error = checkError(answer);
-		String request = createRequest(task, answer, error);
+		ByteBuffer jsonBuffer = createRequest(task, answer, checkError(answer));
+		ByteBuffer content = ByteBuffer.allocate(Long.BYTES + Integer.BYTES);
 		
-		ByteBuffer bb = charsetUTF8.encode(request);
-		
-		if(bb.remaining() > 4096) {
-			System.err.println("Too long");
-			error = "Too Long";
-			request = createRequest(task, answer, error);
-			bb = charsetUTF8.encode(request);
+		content.putLong(task.getJobId()).putInt(task.getTask());
+		content.flip();
+		if(content.remaining() + jsonBuffer.remaining() > 4096) {
+			jsonBuffer = createRequest(task, answer, "Too Long");
 		}
 		
-		System.out.println(request);
+		int contentLength = content.remaining() + jsonBuffer.remaining();
+		String header = "POST Answer HTTP/1.1\r\nHost: " + sa.getHostName() + "\r\nContent-Type: application/json\r\nContent-Length: " + contentLength + "\r\n\r\n";
+		
+		System.out.println(header);
+		ByteBuffer bb = charsetASCII.encode(header);
 		
 		sc.write(bb);
+		sc.write(content);
+		sc.write(jsonBuffer);
 	}
 
 	/**
@@ -299,8 +302,8 @@ public class Client {
 //		System.out.println(worker.compute(task.getTask()));
 		
 		
-		//Client client = new Client("BastienMarwin", "ns364759.ip-91-121-196.eu", 8080);
-		Client client = new Client("BastienMarwin", "localhost", 7777);
+		Client client = new Client("BastienMarwin", "ns364759.ip-91-121-196.eu", 8080);
+		//Client client = new Client("BastienMarwin", "localhost", 7777);
 		client.interact();
 	}
 
