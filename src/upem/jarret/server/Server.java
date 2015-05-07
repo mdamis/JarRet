@@ -17,7 +17,7 @@ import upem.jarret.http.HTTPReader;
 public class Server {
 	static final Charset charsetASCII = Charset.forName("ASCII");
 	static final Charset charsetUTF8 = Charset.forName("utf-8");
-	private static final String badRequest = "HTTP/1.1 400 Bad Request\r\n\r\n";
+	static final String badRequest = "HTTP/1.1 400 Bad Request\r\n\r\n";
 	
 	private final ServerSocketChannel ssc;
 	private final Selector selector;
@@ -147,15 +147,12 @@ public class Server {
 	private void doRead(SelectionKey key) throws IOException {
 		SocketChannel sc = (SocketChannel) key.channel();
 		Attachment attachment = (Attachment) key.attachment();
-		ByteBuffer bb = attachment.getBb();
 		HTTPReader reader = attachment.getReader();
 		
-		//bb.clear();
 		String line = reader.readLineCRLF();
-		//bb.flip();
 		
 		try {
-			parserequest(line, attachment);
+			parseRequest(line, attachment);
 		} catch (Exception e){
 			sc.write(charsetUTF8.encode(badRequest));
 			return;
@@ -164,7 +161,7 @@ public class Server {
 		key.interestOps(SelectionKey.OP_WRITE);
 	}
 
-	private void parserequest(String request, Attachment attachment) throws IOException {
+	private void parseRequest(String request, Attachment attachment) throws IOException {
 		System.out.println("request: "+request);
 		String[] lines = request.split("\r\n");
 		
@@ -213,7 +210,7 @@ public class Server {
 			System.out.println("task send");
 			key.interestOps(SelectionKey.OP_READ);
 		} else if(attachment.isSendingPost()) {
-			attachment.sendCheckCode();
+			attachment.sendCheckCode((SocketChannel)key.channel());
 			key.interestOps(0);
 		}
 	}

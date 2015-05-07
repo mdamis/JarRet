@@ -136,7 +136,7 @@ public class Client {
 	 * @return true if the string is in json, false otherwise
 	 * @throws IOException if something went wrong
 	 */
-	private boolean isJSON(String string) throws IOException {
+	public static boolean isJSON(String string) throws IOException {
 		JsonFactory jf = new JsonFactory();
 		JsonParser jp = jf.createParser(string);
 		try {

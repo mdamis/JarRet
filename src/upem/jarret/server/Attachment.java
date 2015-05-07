@@ -4,21 +4,17 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 
+import upem.jarret.client.Client;
 import upem.jarret.http.HTTPReader;
 
 public class Attachment {
-	private ByteBuffer bb = ByteBuffer.allocate(50);
 	private HTTPReader reader;
 	private boolean requestingTask = false;
 	private boolean sendingPost = false;
 	private String answer = null;
 	
 	public Attachment(SocketChannel sc) {
-		reader = new HTTPReader(sc, bb);
-	}
-
-	public ByteBuffer getBb() {
-		return bb;
+		reader = new HTTPReader(sc, ByteBuffer.allocate(50));
 	}
 
 	public void requestTask() {
@@ -48,11 +44,15 @@ public class Attachment {
 		this.sendingPost = sendingPost;
 	}
 
-	public void sendCheckCode() {
+	public void sendCheckCode(SocketChannel sc) throws IOException {
 		setSendingPost(false);
-		// TODO Auto-generated method stub
 		if(answer == null) {
 			throw new IllegalArgumentException("No answer");
+		}
+		if(Client.isJSON(answer)) {
+			sc.write(Server.charsetUTF8.encode("HTTP/1.1 200 OK\r\n\r\n"));
+		} else {
+			sc.write(Server.charsetUTF8.encode(Server.badRequest));
 		}
 	}
 
