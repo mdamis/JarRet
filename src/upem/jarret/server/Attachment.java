@@ -54,6 +54,7 @@ public class Attachment {
 		} else {
 			sc.write(Server.charsetUTF8.encode(Server.badRequest));
 		}
+		reader = new HTTPReader(sc, ByteBuffer.allocate(50));
 	}
 
 	public void sendTask(SocketChannel sc) throws IOException {

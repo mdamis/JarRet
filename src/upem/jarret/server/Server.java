@@ -199,6 +199,9 @@ public class Server {
 		}
 		ByteBuffer bb = reader.readBytes(content_length);
 		bb.flip();
+		// something to do with these??
+		Long jobId = bb.getLong();
+		int task = bb.getInt();
 		return charsetUTF8.decode(bb).toString();
 	}
 
@@ -211,7 +214,8 @@ public class Server {
 			key.interestOps(SelectionKey.OP_READ);
 		} else if(attachment.isSendingPost()) {
 			attachment.sendCheckCode((SocketChannel)key.channel());
-			key.interestOps(0);
+			key.interestOps(SelectionKey.OP_READ);
+			//key.interestOps(0);
 		}
 	}
 
