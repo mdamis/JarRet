@@ -31,7 +31,7 @@ public class Attachment {
 	}
 
 	public void requestAnswer(String answer) {
-		System.out.println("Client sending an answer: "+answer);
+		//System.out.println("Client sending an answer: "+answer);
 		this.answer = answer;
 		setSendingPost(true);
 	}
@@ -70,7 +70,7 @@ public class Attachment {
 				+ "Content-Type: application/json; charset=utf-8\r\n"
 				+ "Content-Length: "+bb.remaining()+"\r\n\r\n"+worker;
 		bb = Server.charsetUTF8.encode(task);
-		System.out.println("Task: "+task);
+		//System.out.println("Task: "+task);
 		while(bb.hasRemaining()) {
 			sc.write(bb);
 		}
