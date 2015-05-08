@@ -18,6 +18,11 @@ import java.util.Objects;
 import java.util.Scanner;
 import java.util.Set;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+
 import upem.jarret.http.HTTPReader;
 
 public class Server {
@@ -29,8 +34,11 @@ public class Server {
 	private final Selector selector;
 	private final Set<SelectionKey> selectedKeys;
 
-	private final String logPath = "log/";
-	private final String answersPath = "answers/";
+	private final int port;
+	private final String logPath;
+	private final String answersPath;
+	private final long maxFileSize;
+	private final int comeBackInSeconds;
 
 	private final Thread consoleThread = new Thread(() -> {
 		try (Scanner scanner = new Scanner(System.in)) {
@@ -53,7 +61,13 @@ public class Server {
 		}
 	});
 
-	public Server(int port) throws IOException {
+	private Server(int port, String logPath, String answersPath, long maxFileSize, int comeBackInSeconds) throws IOException {
+		this.port = port;
+		this.logPath = logPath;
+		this.answersPath = answersPath;
+		this.maxFileSize = maxFileSize;
+		this.comeBackInSeconds = comeBackInSeconds;
+		
 		ssc = ServerSocketChannel.open();
 		ssc.bind(new InetSocketAddress(port));
 		selector = Selector.open();
@@ -234,6 +248,47 @@ public class Server {
 	        System.err.println(e);
         }
 	}
+	
+	private static Server create() throws JsonParseException, IOException {
+		File serverConfig = Paths.get("config/JarRetConfig.json").toFile();
+		
+		int port = 8080;
+		String logPath = "log/";
+		String answersPath = "answers/";
+		long maxFileSize = 0;
+		int comeBackInSeconds = 300;
+		
+		JsonFactory jf = new JsonFactory();
+		JsonParser jp = jf.createParser(serverConfig);
+		jp.nextToken();
+		while(jp.nextToken() != JsonToken.END_OBJECT) {
+			String fieldName = jp.getCurrentName();
+			System.out.println(fieldName);
+			jp.nextToken();
+			switch(fieldName) {
+			case "Port":
+				port = jp.getIntValue();
+				break;
+			case "LogDirectory":
+				logPath = jp.getText();
+				break;
+			case "AnswersDirectory":
+				answersPath = jp.getText();
+				break;
+			case "MaxFileSize":
+				maxFileSize = jp.getLongValue();
+				break;
+			case "ComeBackInSeconds":
+				comeBackInSeconds = jp.getIntValue();
+				break;
+			default:
+				System.err.println("Unknown Field");
+			}
+		}
+		
+		return new Server(port, logPath, answersPath, maxFileSize, comeBackInSeconds);
+		
+	}
 
 	private void doWrite(SelectionKey key) throws IOException {
 		Attachment attachment = (Attachment) key.attachment();
@@ -254,7 +309,7 @@ public class Server {
 	}
 
 	public static void main(String[] args) throws NumberFormatException, IOException {
-		new Server(Integer.parseInt(args[0])).launch();
+		Server.create().launch();
 	}
 
 }
