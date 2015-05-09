@@ -6,13 +6,14 @@ import java.nio.channels.SocketChannel;
 
 import upem.jarret.client.Client;
 import upem.jarret.http.HTTPReader;
+import util.JsonTools;
 
 public class Attachment {
 	private HTTPReader reader;
 	private boolean requestingTask = false;
 	private boolean sendingPost = false;
 	private String answer = null;
-	
+
 	public Attachment(SocketChannel sc) {
 		reader = new HTTPReader(sc, ByteBuffer.allocate(50));
 	}
@@ -31,7 +32,7 @@ public class Attachment {
 	}
 
 	public void requestAnswer(String answer) {
-		//System.out.println("Client sending an answer: "+answer);
+		// System.out.println("Client sending an answer: "+answer);
 		this.answer = answer;
 		setSendingPost(true);
 	}
@@ -46,10 +47,10 @@ public class Attachment {
 
 	public void sendCheckCode(SocketChannel sc) throws IOException {
 		setSendingPost(false);
-		if(answer == null) {
+		if (answer == null) {
 			throw new IllegalArgumentException("No answer");
 		}
-		if(Client.isJSON(answer)) {
+		if (JsonTools.isJSON(answer)) {
 			sc.write(Server.charsetUTF8.encode("HTTP/1.1 200 OK\r\n\r\n"));
 		} else {
 			sc.write(Server.charsetUTF8.encode(Server.badRequest));
@@ -60,5 +61,5 @@ public class Attachment {
 	public HTTPReader getReader() {
 		return reader;
 	}
-	
+
 }

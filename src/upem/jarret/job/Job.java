@@ -16,6 +16,7 @@ public class Job {
 	private final String workerURL;
 	private final String workerClassName;
 	private int currentTask;
+	private boolean isFinished = false;
 
 	private Job(String jobId, String jobTaskNumber, String jobDescription, String jobPriority, String workerVersion,
 	        String workerURL, String workerClassName, int currentTask) {
@@ -60,6 +61,10 @@ public class Job {
 	public String getWorkerClassName() {
 		return workerClassName;
 	}
+	
+	public boolean isFinished() {
+	    return isFinished;
+    }
 
 	public static Job parseJSON(JsonParser jp) throws JsonParseException, IOException {
 	
@@ -104,16 +109,24 @@ public class Job {
 		return new Job(jobId, jobTaskNumber, jobDescription, jobPriority, workerVersion, workerURL, workerClassName, 0);
 	}
 
-	public String nextTask() throws IOException {
-		return new Task(jobId, workerVersion, workerURL, workerClassName, currentTask++).toJSON();
+	public Task nextTask() throws IOException {
+		Task task = new Task(jobId, workerVersion, workerURL, workerClassName, currentTask);
+		updateCurrentTask();
+		return task;
 	}
 	
+	private void updateCurrentTask() {
+	    currentTask++;
+	    if(currentTask > Integer.parseInt(jobTaskNumber)) {
+	    	isFinished = true;
+	    }
+    }
+
 	@Override
     public String toString() {
 	    return "Job [jobId=" + jobId + ", jobTaskNumber=" + jobTaskNumber + ", jobDescription=" + jobDescription
 	            + ", jobPriority=" + jobPriority + ", workerVersion=" + workerVersion + ", workerURL=" + workerURL
 	            + ", workerClassName=" + workerClassName + ", currentTask=" + currentTask + "]";
     }
-	
-	
+		
 }

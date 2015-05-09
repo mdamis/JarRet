@@ -21,6 +21,7 @@ import java.util.Set;
 
 import upem.jarret.http.HTTPReader;
 import upem.jarret.job.Job;
+import util.JsonTools;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParseException;
@@ -254,8 +255,34 @@ public class Server {
 		long jobId = bb.getLong();
 		int task = bb.getInt();
 		String answer = charsetUTF8.decode(bb).toString();
-		saveAnswer(jobId, task, answer);
+		if (answer != null && JsonTools.isJSON(answer)) {
+			saveLog(jobId, task, answer);
+			//saveAnswer(jobId, task, answer);
+		}
+
 		return answer;
+	}
+
+	private void saveLog(long jobId, int task, String answer) throws JsonParseException, IOException {
+		Path logFilePath = Paths.get(logPath + jobId);
+		File logFile = logFilePath.toFile();
+		
+		try {
+			if (logFile.createNewFile()) {
+				System.out.println(logFilePath + " created");
+			} else {
+				System.out.println(logFilePath + " found");
+			}
+		} catch (IOException e) {
+			System.err.println("Error while trying to create a new File");
+		}
+		
+		try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFile, true)))) {
+			out.println("\ntask : " + task + "\nanswer :" + answer + "\n");
+		} catch (IOException e) {
+			System.err.println(e);
+		}
+
 	}
 
 	private void saveAnswer(long jobId, int task, String answer) {
@@ -321,20 +348,20 @@ public class Server {
 
 	public void sendTask(SocketChannel sc) throws IOException {
 
-		String json = jobs.get(0).nextTask();
+		String json = jobs.get(0).nextTask().toJSON();
 		System.out.println(json);
 		ByteBuffer jsonBuffer = Server.charsetUTF8.encode(json);
 
 		String header = "HTTP/1.1 200 OK\r\n" + "Content-Type: application/json; charset=utf-8\r\n"
 		        + "Content-Length: " + jsonBuffer.remaining() + "\r\n\r\n";
 		ByteBuffer headerBuffer = Server.charsetUTF8.encode(header);
-		
+
 		// System.out.println("Task: "+task);
 		while (headerBuffer.hasRemaining()) {
 			sc.write(headerBuffer);
 		}
-		
-		while(jsonBuffer.hasRemaining()) {
+
+		while (jsonBuffer.hasRemaining()) {
 			sc.write(jsonBuffer);
 		}
 	}
