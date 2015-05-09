@@ -34,43 +34,6 @@ public class Client {
 	}
 
 	/**
-	 * Parses buffer content with Jackson Streaming API
-	 * 
-	 * @param content JSOn to parse
-	 * @return task data parsed
-	 * @throws IOException
-	 * @throws JsonParseException
-	 */
-	private static Task parse(String json) throws JsonParseException, IOException {
-		Task task = new Task();
-		JsonFactory jf = new JsonFactory();
-		JsonParser jp = jf.createParser(json);
-		jp.nextToken();
-		while (jp.nextToken() != JsonToken.END_OBJECT) {
-			String fieldname = jp.getCurrentName();
-			jp.nextToken();
-			if ("ComeBackInSeconds".equals(fieldname)) {
-				task.setComeBackInSeconds(jp.getIntValue());
-			} else if ("JobId".equals(fieldname)) {
-				task.setJobId(jp.getText());
-				task.setComeBackInSeconds(-1);
-			} else if ("WorkerVersion".equals(fieldname)) {
-				task.setWorkerVersion(jp.getText());
-			} else if ("WorkerURL".equals(fieldname)) {
-				task.setWorkerURL(jp.getText());
-			} else if ("WorkerClassName".equals(fieldname)) {
-				task.setWorkerClassName(jp.getText());
-			} else if ("Task".equals(fieldname)) {
-				task.setTask(jp.getText());
-			} else {
-				throw new IllegalStateException("Unrecognized field name: " + fieldname);
-			}
-		}
-		jp.close();
-		return task;
-	}
-
-	/**
 	 * Requests a task to do
 	 * 
 	 * @return task data
@@ -95,7 +58,7 @@ public class Client {
 
 		// parse json
 		content.flip();
-		return parse(charsetUTF8.decode(content).toString());
+		return Task.parseJSON(charsetUTF8.decode(content).toString());
 	}
 
 	private void checkCode() throws IOException {

@@ -26,7 +26,7 @@ public class Attachment {
 		return requestingTask;
 	}
 
-	private void setRequestingTask(boolean requestingTask) {
+	void setRequestingTask(boolean requestingTask) {
 		this.requestingTask = requestingTask;
 	}
 
@@ -55,25 +55,6 @@ public class Attachment {
 			sc.write(Server.charsetUTF8.encode(Server.badRequest));
 		}
 		reader = new HTTPReader(sc, ByteBuffer.allocate(50));
-	}
-
-	public void sendTask(SocketChannel sc) throws IOException {
-		setRequestingTask(false);
-		String worker = "{"
-				+ "\"JobId\": \"23571113\","
-				+ "\"WorkerVersion\": \"1.0\","
-				+"\"WorkerURL\": \"http://igm.univ-mlv.fr/~carayol/WorkerPrimeV1.jar\","
-				+"\"WorkerClassName\": \"upem.workerprime.WorkerPrime\","
-				+"\"Task\":\"9329\"}";
-		ByteBuffer bb = Server.charsetUTF8.encode(worker);
-		String task = "HTTP/1.1 200 OK\r\n"
-				+ "Content-Type: application/json; charset=utf-8\r\n"
-				+ "Content-Length: "+bb.remaining()+"\r\n\r\n"+worker;
-		bb = Server.charsetUTF8.encode(task);
-		//System.out.println("Task: "+task);
-		while(bb.hasRemaining()) {
-			sc.write(bb);
-		}
 	}
 
 	public HTTPReader getReader() {

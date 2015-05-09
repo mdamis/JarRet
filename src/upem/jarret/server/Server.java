@@ -153,7 +153,7 @@ public class Server {
 			}
 			current = jp.nextToken();
 		}
-	
+
 		for (Job job : jobs) {
 			System.out.println(job);
 		}
@@ -319,11 +319,32 @@ public class Server {
 
 	}
 
+	public void sendTask(SocketChannel sc) throws IOException {
+
+		String json = jobs.get(0).nextTask();
+		System.out.println(json);
+		ByteBuffer jsonBuffer = Server.charsetUTF8.encode(json);
+
+		String header = "HTTP/1.1 200 OK\r\n" + "Content-Type: application/json; charset=utf-8\r\n"
+		        + "Content-Length: " + jsonBuffer.remaining() + "\r\n\r\n";
+		ByteBuffer headerBuffer = Server.charsetUTF8.encode(header);
+		
+		// System.out.println("Task: "+task);
+		while (headerBuffer.hasRemaining()) {
+			sc.write(headerBuffer);
+		}
+		
+		while(jsonBuffer.hasRemaining()) {
+			sc.write(jsonBuffer);
+		}
+	}
+
 	private void doWrite(SelectionKey key) throws IOException {
 		Attachment attachment = (Attachment) key.attachment();
 
 		if (attachment.isRequestingTask()) {
-			attachment.sendTask((SocketChannel) key.channel());
+			attachment.setRequestingTask(false);
+			sendTask((SocketChannel) key.channel());
 			System.out.println("task send");
 			key.interestOps(SelectionKey.OP_READ);
 		} else if (attachment.isSendingPost()) {

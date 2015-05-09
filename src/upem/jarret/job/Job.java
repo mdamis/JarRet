@@ -33,10 +33,6 @@ public class Job {
 		return currentTask;
 	}
 
-	public void setCurrentTask(int currentTask) {
-		this.currentTask = currentTask;
-	}
-
 	public String getJobId() {
 		return jobId;
 	}
@@ -108,6 +104,10 @@ public class Job {
 		return new Job(jobId, jobTaskNumber, jobDescription, jobPriority, workerVersion, workerURL, workerClassName, 0);
 	}
 
+	public String nextTask() throws IOException {
+		return new Task(jobId, workerVersion, workerURL, workerClassName, currentTask++).toJSON();
+	}
+	
 	@Override
     public String toString() {
 	    return "Job [jobId=" + jobId + ", jobTaskNumber=" + jobTaskNumber + ", jobDescription=" + jobDescription
