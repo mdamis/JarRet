@@ -1,4 +1,4 @@
-package upem.jarret.client;
+package upem.jarret.job;
 
 public class Task {
 	private String _JobId;

@@ -10,6 +10,7 @@ import java.rmi.UnexpectedException;
 
 import upem.jarret.http.HTTPHeader;
 import upem.jarret.http.HTTPReader;
+import upem.jarret.job.Task;
 import upem.jarret.worker.Worker;
 import upem.jarret.worker.WorkerFactory;
 

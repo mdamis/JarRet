@@ -14,16 +14,18 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Scanner;
 import java.util.Set;
+
+import upem.jarret.http.HTTPReader;
+import upem.jarret.job.Job;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-
-import upem.jarret.http.HTTPReader;
 
 public class Server {
 	static final Charset charsetASCII = Charset.forName("ASCII");
@@ -39,6 +41,7 @@ public class Server {
 	private final String answersPath;
 	private final long maxFileSize;
 	private final int comeBackInSeconds;
+	private final ArrayList<Job> jobs = new ArrayList<Job>();
 
 	private final Thread consoleThread = new Thread(() -> {
 		try (Scanner scanner = new Scanner(System.in)) {
@@ -61,13 +64,14 @@ public class Server {
 		}
 	});
 
-	private Server(int port, String logPath, String answersPath, long maxFileSize, int comeBackInSeconds) throws IOException {
+	private Server(int port, String logPath, String answersPath, long maxFileSize, int comeBackInSeconds)
+	        throws IOException {
 		this.port = port;
 		this.logPath = logPath;
 		this.answersPath = answersPath;
 		this.maxFileSize = maxFileSize;
 		this.comeBackInSeconds = comeBackInSeconds;
-		
+
 		ssc = ServerSocketChannel.open();
 		ssc.bind(new InetSocketAddress(port));
 		selector = Selector.open();
@@ -122,10 +126,36 @@ public class Server {
 		ssc.register(selector, SelectionKey.OP_ACCEPT);
 		System.out.println("Server launched on port " + ssc.getLocalAddress());
 		Set<SelectionKey> selectedKeys = selector.selectedKeys();
+
+		loadJobs();
+
 		while (!Thread.interrupted()) {
 			selector.select();
 			processSelectedKeys();
 			selectedKeys.clear();
+		}
+	}
+
+	private void loadJobs() throws JsonParseException, IOException {
+		File jobsConfig = Paths.get("config/JarRetJobs.json").toFile();
+
+		JsonFactory jf = new JsonFactory();
+		JsonParser jp = jf.createParser(jobsConfig);
+
+		JsonToken current = jp.nextToken();
+		while (current != null) {
+			switch (current) {
+			case START_OBJECT:
+				jobs.add(Job.parseJSON(jp));
+				break;
+			default:
+				break;
+			}
+			current = jp.nextToken();
+		}
+	
+		for (Job job : jobs) {
+			System.out.println(job);
 		}
 	}
 
@@ -225,7 +255,7 @@ public class Server {
 		int task = bb.getInt();
 		String answer = charsetUTF8.decode(bb).toString();
 		saveAnswer(jobId, task, answer);
-		return answer; 
+		return answer;
 	}
 
 	private void saveAnswer(long jobId, int task, String answer) {
@@ -233,7 +263,7 @@ public class Server {
 
 		File answerFile = answerFilePath.toFile();
 		try {
-			if(answerFile.createNewFile()) {
+			if (answerFile.createNewFile()) {
 				System.out.println(answerFilePath + " created");
 			} else {
 				System.out.println(answerFilePath + " found");
@@ -241,31 +271,30 @@ public class Server {
 		} catch (IOException e) {
 			System.err.println("Error while trying to create a new File");
 		}
-		
-		try(PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(answerFile, true)))) {
+
+		try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(answerFile, true)))) {
 			out.println("=====\n" + answer + "\n=====");
 		} catch (IOException e) {
-	        System.err.println(e);
-        }
+			System.err.println(e);
+		}
 	}
-	
+
 	private static Server create() throws JsonParseException, IOException {
 		File serverConfig = Paths.get("config/JarRetConfig.json").toFile();
-		
+
 		int port = 8080;
 		String logPath = "log/";
 		String answersPath = "answers/";
 		long maxFileSize = 0;
 		int comeBackInSeconds = 300;
-		
+
 		JsonFactory jf = new JsonFactory();
 		JsonParser jp = jf.createParser(serverConfig);
 		jp.nextToken();
-		while(jp.nextToken() != JsonToken.END_OBJECT) {
+		while (jp.nextToken() != JsonToken.END_OBJECT) {
 			String fieldName = jp.getCurrentName();
-			System.out.println(fieldName);
 			jp.nextToken();
-			switch(fieldName) {
+			switch (fieldName) {
 			case "Port":
 				port = jp.getIntValue();
 				break;
@@ -285,9 +314,9 @@ public class Server {
 				System.err.println("Unknown Field");
 			}
 		}
-		
+
 		return new Server(port, logPath, answersPath, maxFileSize, comeBackInSeconds);
-		
+
 	}
 
 	private void doWrite(SelectionKey key) throws IOException {
