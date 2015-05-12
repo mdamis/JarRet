@@ -15,7 +15,6 @@ import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Scanner;
 import java.util.Set;
@@ -359,6 +358,9 @@ public class Server {
 		if(job == null) {
 			jsonBuffer = charsetUTF8.encode("\"ComeBackInSeconds\":"+comeBackInSeconds);
 		} else {
+			while(job.isFinished()) {
+				job = jobs.poll();
+			}
 			String json = job.nextTask().toJSON();
 			System.out.println(json);
 			jsonBuffer = Server.charsetUTF8.encode(json);

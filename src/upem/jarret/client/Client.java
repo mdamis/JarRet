@@ -277,8 +277,8 @@ public class Client {
 //		System.out.println(worker.compute(task.getTask()));
 		
 		
-		//Client client = new Client("BastienMarwin", "ns364759.ip-91-121-196.eu", 8080);
-		Client client = new Client("BastienMarwin", "localhost", 8080);
+		Client client = new Client("BastienMarwin", "ns364759.ip-91-121-196.eu", 8080);
+		//Client client = new Client("BastienMarwin", "localhost", 8080);
 		client.interact();
 	}
 
