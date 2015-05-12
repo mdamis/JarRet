@@ -30,10 +30,11 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 
 public class Server {
+	private static final String HTTP_1_1_200_OK = "HTTP/1.1 200 OK\r\n\r\n";
 	static final Charset charsetASCII = Charset.forName("ASCII");
 	static final Charset charsetUTF8 = Charset.forName("utf-8");
 	static final String badRequest = "HTTP/1.1 400 Bad Request\r\n\r\n";
-
+	
 	private final ServerSocketChannel ssc;
 	private final Selector selector;
 	private final Set<SelectionKey> selectedKeys;
@@ -212,6 +213,7 @@ public class Server {
 		try {
 			parseRequest(line, attachment);
 		} catch (Exception e) {
+			e.printStackTrace();
 			sc.write(charsetUTF8.encode(badRequest));
 			return;
 		}
@@ -229,6 +231,7 @@ public class Server {
 
 		if (cmd.equals("GET") && requested.equals("Task") && protocol.equals("HTTP/1.1")) {
 			attachment.requestTask();
+			attachment.getReader().readLineCRLF();
 		} else if (cmd.equals("POST") && requested.equals("Answer") && protocol.equals("HTTP/1.1")) {
 			String answer = parsePOST(attachment);
 			Objects.requireNonNull(answer);
@@ -402,9 +405,9 @@ public class Server {
 			throw new IllegalArgumentException("No answer");
 		}
 		if (JsonTools.isJSON(answer)) {
-			sc.write(Server.charsetUTF8.encode("HTTP/1.1 200 OK\r\n\r\n"));
+			sc.write(Server.charsetUTF8.encode(HTTP_1_1_200_OK));
 		} else {
-			sc.write(Server.charsetUTF8.encode(Server.badRequest));
+			sc.write(Server.charsetUTF8.encode(badRequest));
 		}
 		
 		attachment.clean(sc);
