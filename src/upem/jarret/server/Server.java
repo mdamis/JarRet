@@ -44,7 +44,10 @@ public class Server {
 	private final long maxFileSize;
 	private final int comeBackInSeconds;
 	private final ArrayDeque<Job> jobs = new ArrayDeque<Job>();
-
+	
+	private boolean shutdown = false;
+	private SelectionKey acceptKey;
+	
 	private final Thread consoleThread = new Thread(() -> {
 		try (Scanner scanner = new Scanner(System.in)) {
 			while (scanner.hasNextLine()) {
@@ -96,20 +99,17 @@ public class Server {
 
 	private void shutdown() {
 		System.out.println("SHUTDOWN");
+		
 		try {
-			ssc.close();
-		} catch (Exception e) {
-			e.printStackTrace();
+			close(acceptKey);
+		} catch (IOException e) {
+			//
 		}
+		//shutdown = true;
 	}
 
 	private void shutdownNow() {
 		System.out.println("SHUTDOWN NOW");
-		try {
-			ssc.close();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
 
 		for (SelectionKey key : selectedKeys) {
 			try {
@@ -118,6 +118,8 @@ public class Server {
 				e.printStackTrace();
 			}
 		}
+		
+		shutdown = true;
 	}
 
 	public void launch() throws IOException {
@@ -125,14 +127,14 @@ public class Server {
 		consoleThread.start();
 
 		ssc.configureBlocking(false);
-		ssc.register(selector, SelectionKey.OP_ACCEPT);
+		acceptKey = ssc.register(selector, SelectionKey.OP_ACCEPT);
 		System.out.println("Server launched on port " + ssc.getLocalAddress());
 		Set<SelectionKey> selectedKeys = selector.selectedKeys();
 
 		loadJobs();
 
-		while (!Thread.interrupted()) {
-			selector.select();
+		while (!shutdown) {
+			selector.select(300);
 			processSelectedKeys();
 			selectedKeys.clear();
 		}
@@ -417,6 +419,7 @@ public class Server {
 
 	private void close(SelectionKey key) throws IOException {
 		key.channel().close();
+		key.cancel();
 	}
 
 	public static void main(String[] args) throws NumberFormatException, IOException {
