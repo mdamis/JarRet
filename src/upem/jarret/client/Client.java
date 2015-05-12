@@ -2,12 +2,14 @@ package upem.jarret.client;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 import java.rmi.UnexpectedException;
 
+import upem.jarret.http.HTTPException;
 import upem.jarret.http.HTTPHeader;
 import upem.jarret.http.HTTPReader;
 import upem.jarret.job.Task;
@@ -36,9 +38,10 @@ public class Client {
 	 * Requests a task to do
 	 * 
 	 * @return task data
+	 * @throws HTTPException 
 	 * @throws IOException
 	 */
-	private Task requestTask() throws IOException {
+	private Task requestTask() throws HTTPException, IOException {
 		// send the request
 		String request = "GET Task HTTP/1.1\r\n" + "Host: " + sa.getHostName() + "\r\n" + "\r\n";
 		sc.write(charsetASCII.encode(request));
@@ -47,7 +50,7 @@ public class Client {
 		ByteBuffer bb = ByteBuffer.allocate(50);
 		HTTPReader reader = new HTTPReader(sc, bb);
 		HTTPHeader header = reader.readHeader();
-		System.out.println(header.toString());
+		
 		if (header.getCode() == 400) {
 			throw new IllegalArgumentException("Bad request: " + request);
 		} else if (header.getCode() != 200) {
@@ -65,7 +68,10 @@ public class Client {
 		HTTPReader reader = new HTTPReader(sc, bb);
 		HTTPHeader header = reader.readHeader();
 		System.out.println("Answer from server : " + header.getCode());
-		//reader.readLineCRLF();
+		
+		if(!(header.getCode() == 200)) {
+			throw new IllegalArgumentException();
+		} 
     }
 
 	/**
@@ -126,7 +132,6 @@ public class Client {
 		jg.close();
 		
 		String json = baos.toString();
-		System.out.println(json);
 		ByteBuffer jsonBuffer = charsetUTF8.encode(json);
 		
 		return jsonBuffer;
@@ -152,7 +157,6 @@ public class Client {
 		int contentLength = content.remaining() + jsonBuffer.remaining();
 		String header = "POST Answer HTTP/1.1\r\nHost: " + sa.getHostName() + "\r\nContent-Type: application/json\r\nContent-Length: " + contentLength + "\r\n\r\n";
 		
-		System.out.println(header);
 		ByteBuffer bb = charsetASCII.encode(header);
 		
 		sc.write(bb);
@@ -174,17 +178,17 @@ public class Client {
 		Task task = new Task();
 		Worker worker = null;
 		do {
-			sc = SocketChannel.open();
-			sc.connect(sa);
+			connect();
 			while (true) {
 				try {
+					System.out.println("Requesting task");
 					task = requestTask();
 				} catch(IllegalArgumentException e) {
 					System.err.println(e.getMessage());
 					task.setComeBackInSeconds(300);
-				} catch(UnexpectedException e) {
-					System.err.println(e.getMessage());
-					task.setComeBackInSeconds(300);
+				} catch(IOException e) {
+					connect();
+					continue;
 				}
 				try {
 					Thread.sleep(task.getComeBackInSeconds());
@@ -192,22 +196,72 @@ public class Client {
 					break;
 				}
 			}
+			System.out.println("Task received: "+task.toJSON());
 			if (worker == null || task.getWorkerVersion() != worker.getVersion()
 			        || task.getJobId() != worker.getJobId()) {
+				System.out.println("Retrieving worker");
 				worker = WorkerFactory.getWorker(task.getWorkerURL(), task.getWorkerClassName());
 			}
 			String answer;
 			try {
+				System.out.println("Starting computation");
 				answer = worker.compute(task.getTask());
 			} catch (Exception e) {
 				answer = null;
 			}
-			sendAnswer(task, answer);
-			checkCode();
-			// Une tache par client pour l'instant
-			//break;
-			sc.close();
+			while(true) {
+				while(true) {
+					try{
+						System.out.println("Sending answer");
+						sendAnswer(task, answer);
+						break;
+					} catch(IOException e) {
+						connect();
+					}
+				}
+				try{
+					checkCode();
+					break;
+				} catch(IOException e) {
+					//connect();
+				} catch(IllegalArgumentException e) {
+					System.out.println("Server does not reply with 200");
+				}
+			}
+			try{
+				sc.close();
+			} catch(Exception e) {
+				//
+			}
+			System.out.println("\n--------------------------------------\n");
 		} while (true);
+	}
+
+	private void connect() {
+		try{
+			sc.close();
+		} catch(Exception e) {
+			//
+		}
+		while(true) {
+			System.out.println("Trying to connect with server...");
+			try {
+				sc = SocketChannel.open();
+				sc.connect(sa);
+				return;
+			} catch(ConnectException e) {
+				//
+			} catch(IOException e) {
+				//
+			}
+			try {
+				Thread.sleep(300);
+			} catch (IllegalArgumentException e) {
+				return;
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
 	}
 
 	public static void main(String[] args) throws JsonParseException, IOException, ClassNotFoundException,
@@ -223,8 +277,8 @@ public class Client {
 //		System.out.println(worker.compute(task.getTask()));
 		
 		
-		Client client = new Client("BastienMarwin", "ns364759.ip-91-121-196.eu", 8080);
-		//Client client = new Client("BastienMarwin", "localhost", 7777);
+		//Client client = new Client("BastienMarwin", "ns364759.ip-91-121-196.eu", 8080);
+		Client client = new Client("BastienMarwin", "localhost", 8080);
 		client.interact();
 	}
 

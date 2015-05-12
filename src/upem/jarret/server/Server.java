@@ -231,7 +231,7 @@ public class Server {
 
 		if (cmd.equals("GET") && requested.equals("Task") && protocol.equals("HTTP/1.1")) {
 			attachment.requestTask();
-			attachment.getReader().readLineCRLF();
+			while(!attachment.getReader().readLineCRLF().equals("")) { /* read useless parameters with the GET request */ }
 		} else if (cmd.equals("POST") && requested.equals("Answer") && protocol.equals("HTTP/1.1")) {
 			String answer = parsePOST(attachment);
 			Objects.requireNonNull(answer);
