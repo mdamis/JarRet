@@ -265,30 +265,21 @@ public class Server {
 		int task = bb.getInt();
 		String answer = charsetUTF8.decode(bb).toString();
 		if (answer != null && JsonTools.isJSON(answer)) {
-			saveLog(jobId, task, answer);
 			saveAnswer(jobId, task, answer);
 		}
 
 		return answer;
 	}
 
-	private void saveLog(long jobId, int task, String answer) throws JsonParseException, IOException {
-		Path logFilePath = Paths.get(logPath + jobId);
-
-		try (BufferedWriter reader = Files.newBufferedWriter(logFilePath, StandardOpenOption.APPEND, StandardOpenOption.CREATE);
-		        PrintWriter out = new PrintWriter(reader)) {
-			out.println(answer + '\n');
-		} catch (IOException e) {
-			System.err.println(e);
-		}
-
+	private void saveLog() {
+		// TODO
 	}
 
 	private void saveAnswer(long jobId, int task, String answer) {
-		Path answerFilePath = Paths.get(answersPath + jobId + "_" + task);
+		Path answerFilePath = Paths.get(answersPath + jobId);
 
-		try (BufferedWriter reader = Files.newBufferedWriter(answerFilePath, StandardOpenOption.APPEND, StandardOpenOption.CREATE);
-		        PrintWriter out = new PrintWriter(reader)) {
+		try (BufferedWriter writer = Files.newBufferedWriter(answerFilePath, StandardOpenOption.APPEND,
+		        StandardOpenOption.CREATE); PrintWriter out = new PrintWriter(writer)) {
 			out.println(answer + '\n');
 		} catch (IOException e) {
 			System.err.println(e);
@@ -296,7 +287,7 @@ public class Server {
 	}
 
 	private static Server create() throws JsonParseException, IOException {
-		Path serverConfigPath =  Paths.get("config/JarRetConfig.json");
+		Path serverConfigPath = Paths.get("config/JarRetConfig.json");
 
 		int port = 8080;
 		String logPath = "log/";
