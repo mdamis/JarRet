@@ -14,6 +14,7 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Scanner;
@@ -42,7 +43,7 @@ public class Server {
 	private final String answersPath;
 	private final long maxFileSize;
 	private final int comeBackInSeconds;
-	private final ArrayList<Job> jobs = new ArrayList<Job>();
+	private final ArrayDeque<Job> jobs = new ArrayDeque<Job>();
 
 	private final Thread consoleThread = new Thread(() -> {
 		try (Scanner scanner = new Scanner(System.in)) {
@@ -147,7 +148,10 @@ public class Server {
 		while (current != null) {
 			switch (current) {
 			case START_OBJECT:
-				jobs.add(Job.parseJSON(jp));
+				Job job = Job.parseJSON(jp);
+				for(int i=0; i<Integer.parseInt(job.getJobPriority()); i++) {
+					jobs.add(job);
+				}
 				break;
 			default:
 				break;
@@ -347,10 +351,15 @@ public class Server {
 	}
 
 	public void sendTask(SocketChannel sc) throws IOException {
-
-		String json = jobs.get(0).nextTask().toJSON();
-		System.out.println(json);
-		ByteBuffer jsonBuffer = Server.charsetUTF8.encode(json);
+		Job job = jobs.poll();
+		ByteBuffer jsonBuffer;
+		if(job == null) {
+			jsonBuffer = charsetUTF8.encode("\"ComeBackInSeconds\":"+comeBackInSeconds);
+		} else {
+			String json = job.nextTask().toJSON();
+			System.out.println(json);
+			jsonBuffer = Server.charsetUTF8.encode(json);
+		}
 
 		String header = "HTTP/1.1 200 OK\r\n" + "Content-Type: application/json; charset=utf-8\r\n"
 		        + "Content-Length: " + jsonBuffer.remaining() + "\r\n\r\n";
@@ -363,6 +372,9 @@ public class Server {
 
 		while (jsonBuffer.hasRemaining()) {
 			sc.write(jsonBuffer);
+		}
+		if(!job.isFinished()) {
+			jobs.addLast(job);
 		}
 	}
 

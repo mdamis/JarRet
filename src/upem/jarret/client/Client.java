@@ -18,8 +18,6 @@ import util.JsonTools;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
 
 public class Client {
 	private static final Charset charsetASCII = Charset.forName("ASCII");

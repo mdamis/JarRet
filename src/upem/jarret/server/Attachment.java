@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 
-import upem.jarret.client.Client;
 import upem.jarret.http.HTTPReader;
 import util.JsonTools;
 
