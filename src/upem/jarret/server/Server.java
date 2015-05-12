@@ -1,8 +1,6 @@
 package upem.jarret.server;
 
 import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
@@ -12,8 +10,10 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.Scanner;
@@ -33,7 +33,7 @@ public class Server {
 	static final Charset charsetASCII = Charset.forName("ASCII");
 	static final Charset charsetUTF8 = Charset.forName("utf-8");
 	static final String badRequest = "HTTP/1.1 400 Bad Request\r\n\r\n";
-	
+
 	private final ServerSocketChannel ssc;
 	private final Selector selector;
 	private final Set<SelectionKey> selectedKeys;
@@ -44,10 +44,10 @@ public class Server {
 	private final long maxFileSize;
 	private final int comeBackInSeconds;
 	private final ArrayDeque<Job> jobs = new ArrayDeque<Job>();
-	
+
 	private boolean shutdown = false;
 	private SelectionKey acceptKey;
-	
+
 	private final Thread consoleThread = new Thread(() -> {
 		try (Scanner scanner = new Scanner(System.in)) {
 			while (scanner.hasNextLine()) {
@@ -99,13 +99,13 @@ public class Server {
 
 	private void shutdown() {
 		System.out.println("SHUTDOWN");
-		
+
 		try {
 			close(acceptKey);
 		} catch (IOException e) {
 			//
 		}
-		//shutdown = true;
+		// shutdown = true;
 	}
 
 	private void shutdownNow() {
@@ -118,7 +118,7 @@ public class Server {
 				e.printStackTrace();
 			}
 		}
-		
+
 		shutdown = true;
 	}
 
@@ -141,17 +141,17 @@ public class Server {
 	}
 
 	private void loadJobs() throws JsonParseException, IOException {
-		File jobsConfig = Paths.get("config/JarRetJobs.json").toFile();
+		Path jobsConfigPath = Paths.get("config/JarRetJobs.json");
 
 		JsonFactory jf = new JsonFactory();
-		JsonParser jp = jf.createParser(jobsConfig);
+		JsonParser jp = jf.createParser(Files.newBufferedReader(jobsConfigPath));
 
 		JsonToken current = jp.nextToken();
 		while (current != null) {
 			switch (current) {
 			case START_OBJECT:
 				Job job = Job.parseJSON(jp);
-				for(int i=0; i<Integer.parseInt(job.getJobPriority()); i++) {
+				for (int i = 0; i < Integer.parseInt(job.getJobPriority()); i++) {
 					jobs.add(job);
 				}
 				break;
@@ -232,7 +232,8 @@ public class Server {
 
 		if (cmd.equals("GET") && requested.equals("Task") && protocol.equals("HTTP/1.1")) {
 			attachment.requestTask();
-			while(!attachment.getReader().readLineCRLF().equals("")) { /* read useless parameters with the GET request */ }
+			while (!attachment.getReader().readLineCRLF().equals("")) { /* read useless parameters with the GET request */
+			}
 		} else if (cmd.equals("POST") && requested.equals("Answer") && protocol.equals("HTTP/1.1")) {
 			String answer = parsePOST(attachment);
 			Objects.requireNonNull(answer);
@@ -265,7 +266,7 @@ public class Server {
 		String answer = charsetUTF8.decode(bb).toString();
 		if (answer != null && JsonTools.isJSON(answer)) {
 			saveLog(jobId, task, answer);
-			//saveAnswer(jobId, task, answer);
+			saveAnswer(jobId, task, answer);
 		}
 
 		return answer;
@@ -273,20 +274,10 @@ public class Server {
 
 	private void saveLog(long jobId, int task, String answer) throws JsonParseException, IOException {
 		Path logFilePath = Paths.get(logPath + jobId);
-		File logFile = logFilePath.toFile();
-		
-		try {
-			if (logFile.createNewFile()) {
-				System.out.println(logFilePath + " created");
-			} else {
-				System.out.println(logFilePath + " found");
-			}
-		} catch (IOException e) {
-			System.err.println("Error while trying to create a new File");
-		}
-		
-		try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFile, true)))) {
-			out.println("\ntask : " + task + "\nanswer :" + answer + "\n");
+
+		try (BufferedWriter reader = Files.newBufferedWriter(logFilePath, StandardOpenOption.APPEND, StandardOpenOption.CREATE);
+		        PrintWriter out = new PrintWriter(reader)) {
+			out.println(answer + '\n');
 		} catch (IOException e) {
 			System.err.println(e);
 		}
@@ -296,26 +287,16 @@ public class Server {
 	private void saveAnswer(long jobId, int task, String answer) {
 		Path answerFilePath = Paths.get(answersPath + jobId + "_" + task);
 
-		File answerFile = answerFilePath.toFile();
-		try {
-			if (answerFile.createNewFile()) {
-				System.out.println(answerFilePath + " created");
-			} else {
-				System.out.println(answerFilePath + " found");
-			}
-		} catch (IOException e) {
-			System.err.println("Error while trying to create a new File");
-		}
-
-		try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(answerFile, true)))) {
-			out.println("=====\n" + answer + "\n=====");
+		try (BufferedWriter reader = Files.newBufferedWriter(answerFilePath, StandardOpenOption.APPEND, StandardOpenOption.CREATE);
+		        PrintWriter out = new PrintWriter(reader)) {
+			out.println(answer + '\n');
 		} catch (IOException e) {
 			System.err.println(e);
 		}
 	}
 
 	private static Server create() throws JsonParseException, IOException {
-		File serverConfig = Paths.get("config/JarRetConfig.json").toFile();
+		Path serverConfigPath =  Paths.get("config/JarRetConfig.json");
 
 		int port = 8080;
 		String logPath = "log/";
@@ -324,7 +305,7 @@ public class Server {
 		int comeBackInSeconds = 300;
 
 		JsonFactory jf = new JsonFactory();
-		JsonParser jp = jf.createParser(serverConfig);
+		JsonParser jp = jf.createParser(Files.newBufferedReader(serverConfigPath));
 		jp.nextToken();
 		while (jp.nextToken() != JsonToken.END_OBJECT) {
 			String fieldName = jp.getCurrentName();
@@ -357,10 +338,10 @@ public class Server {
 	public void sendTask(SocketChannel sc) throws IOException {
 		Job job = jobs.poll();
 		ByteBuffer jsonBuffer;
-		if(job == null) {
-			jsonBuffer = charsetUTF8.encode("\"ComeBackInSeconds\":"+comeBackInSeconds);
+		if (job == null) {
+			jsonBuffer = charsetUTF8.encode("\"ComeBackInSeconds\":" + comeBackInSeconds);
 		} else {
-			while(job.isFinished()) {
+			while (job.isFinished()) {
 				job = jobs.poll();
 			}
 			String json = job.nextTask().toJSON();
@@ -380,7 +361,7 @@ public class Server {
 		while (jsonBuffer.hasRemaining()) {
 			sc.write(jsonBuffer);
 		}
-		if(!job.isFinished()) {
+		if (!job.isFinished()) {
 			jobs.addLast(job);
 		}
 	}
@@ -399,7 +380,6 @@ public class Server {
 			// key.interestOps(0);
 		}
 	}
-	
 
 	private void sendCheckCode(SelectionKey key) throws IOException {
 		Attachment attachment = (Attachment) key.attachment();
@@ -413,7 +393,7 @@ public class Server {
 		} else {
 			sc.write(Server.charsetUTF8.encode(badRequest));
 		}
-		
+
 		attachment.clean(sc);
 	}
 
