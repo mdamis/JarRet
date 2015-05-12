@@ -387,10 +387,27 @@ public class Server {
 			System.out.println("task send");
 			key.interestOps(SelectionKey.OP_READ);
 		} else if (attachment.isSendingPost()) {
-			attachment.sendCheckCode((SocketChannel) key.channel());
+			sendCheckCode(key);
 			key.interestOps(SelectionKey.OP_READ);
 			// key.interestOps(0);
 		}
+	}
+	
+
+	private void sendCheckCode(SelectionKey key) throws IOException {
+		Attachment attachment = (Attachment) key.attachment();
+		SocketChannel sc = (SocketChannel) key.channel();
+		String answer = attachment.getAnswer();
+		if (answer == null) {
+			throw new IllegalArgumentException("No answer");
+		}
+		if (JsonTools.isJSON(answer)) {
+			sc.write(Server.charsetUTF8.encode("HTTP/1.1 200 OK\r\n\r\n"));
+		} else {
+			sc.write(Server.charsetUTF8.encode(Server.badRequest));
+		}
+		
+		attachment.clean(sc);
 	}
 
 	private void close(SelectionKey key) throws IOException {
