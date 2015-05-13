@@ -47,6 +47,8 @@ public class Server {
 
 	private boolean shutdown = false;
 	private SelectionKey acceptKey;
+	private int clients = 0;
+	private int nbAnswers = 0;
 
 	private final Thread consoleThread = new Thread(() -> {
 		try (Scanner scanner = new Scanner(System.in)) {
@@ -94,7 +96,9 @@ public class Server {
 
 	private void info() {
 		System.out.println("INFO");
-		// TODO
+		System.out.println("Connected clients: "+clients);
+		System.out.println("Next task: - jobId: "+jobs.getFirst().getJobId()+" - task: "+jobs.getFirst().getCurrentTask());
+		System.out.println("Answers received: "+nbAnswers);
 	}
 
 	private void shutdown() {
@@ -105,7 +109,7 @@ public class Server {
 		} catch (IOException e) {
 			//
 		}
-		// shutdown = true;
+		shutdown = true;
 	}
 
 	private void shutdownNow() {
@@ -132,8 +136,8 @@ public class Server {
 		Set<SelectionKey> selectedKeys = selector.selectedKeys();
 
 		loadJobs();
-
-		while (!shutdown) {
+		
+		while (!selector.keys().isEmpty() || !shutdown) {
 			selector.select(300);
 			processSelectedKeys();
 			selectedKeys.clear();
@@ -166,7 +170,7 @@ public class Server {
 		}
 	}
 
-	private void processSelectedKeys() {
+	private void processSelectedKeys() throws IOException {
 		for (SelectionKey key : selectedKeys) {
 			if (key.isValid() && key.isAcceptable()) {
 				try {
@@ -179,16 +183,18 @@ public class Server {
 				try {
 					doWrite(key);
 				} catch (IOException e) {
-					key.cancel();
+					close(key);
 					System.out.println("Connection lost with client");
+					clients--;
 				}
 			}
 			if (key.isValid() && key.isReadable()) {
 				try {
 					doRead(key);
 				} catch (IOException e) {
-					key.cancel();
+					close(key);
 					System.out.println("Connection lost with client");
+					clients--;
 				}
 			}
 		}
@@ -202,6 +208,7 @@ public class Server {
 		sc.configureBlocking(false);
 		sc.register(selector, SelectionKey.OP_READ, new Attachment(sc));
 		System.out.println("New connection from " + sc.getRemoteAddress());
+		clients++;
 	}
 
 	private void doRead(SelectionKey key) throws IOException {
@@ -214,7 +221,7 @@ public class Server {
 		try {
 			parseRequest(line, attachment);
 		} catch (Exception e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 			sc.write(charsetUTF8.encode(badRequest));
 			return;
 		}
@@ -266,6 +273,7 @@ public class Server {
 		String answer = charsetUTF8.decode(bb).toString();
 		if (answer != null && JsonTools.isJSON(answer)) {
 			saveAnswer(jobId, task, answer);
+			nbAnswers++;
 		}
 
 		return answer;
@@ -389,8 +397,12 @@ public class Server {
 	}
 
 	private void close(SelectionKey key) throws IOException {
-		key.channel().close();
-		key.cancel();
+		try{
+			key.channel().close();
+			key.cancel();
+		} catch(Exception e) {
+			//
+		}
 	}
 
 	public static void main(String[] args) throws NumberFormatException, IOException {
