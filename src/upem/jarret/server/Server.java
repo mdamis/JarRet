@@ -56,10 +56,10 @@ public class Server {
 				switch (scanner.nextLine()) {
 				case "SHUTDOWN":
 					shutdown();
-					return;
+					break;
 				case "SHUTDOWN NOW":
 					shutdownNow();
-					return;
+					break;
 				case "INFO":
 					info();
 					break;
@@ -114,8 +114,12 @@ public class Server {
 
 	private void shutdownNow() {
 		System.out.println("SHUTDOWN NOW");
-
-		for (SelectionKey key : selectedKeys) {
+		try {
+			close(acceptKey);
+		} catch (IOException e) {
+			//
+		}
+		for (SelectionKey key : selector.keys()) {
 			try {
 				close(key);
 			} catch (IOException e) {
