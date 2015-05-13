@@ -16,7 +16,6 @@ public class Attachment {
 	}
 
 	public void requestTask() {
-		System.out.println("Client requesting task");
 		setRequestingTask(true);
 	}
 

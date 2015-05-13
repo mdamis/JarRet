@@ -44,6 +44,7 @@ public class Server {
 	private final long maxFileSize;
 	private final int comeBackInSeconds;
 	private final ArrayDeque<Job> jobs = new ArrayDeque<Job>();
+	//private final PrintWriter log;
 
 	private boolean shutdown = false;
 	private SelectionKey acceptKey;
@@ -136,7 +137,7 @@ public class Server {
 
 		ssc.configureBlocking(false);
 		acceptKey = ssc.register(selector, SelectionKey.OP_ACCEPT);
-		System.out.println("Server launched on port " + ssc.getLocalAddress());
+		saveLog("Server launched on port " + ssc.getLocalAddress());
 		Set<SelectionKey> selectedKeys = selector.selectedKeys();
 
 		loadJobs();
@@ -176,6 +177,7 @@ public class Server {
 
 	private void processSelectedKeys() throws IOException {
 		for (SelectionKey key : selectedKeys) {
+
 			if (key.isValid() && key.isAcceptable()) {
 				try {
 					doAccept(key);
@@ -187,8 +189,9 @@ public class Server {
 				try {
 					doWrite(key);
 				} catch (IOException e) {
+					SocketChannel sc = (SocketChannel) key.channel();
+					saveLog("Connection lost with client "+sc.getRemoteAddress());
 					close(key);
-					System.out.println("Connection lost with client");
 					clients--;
 				}
 			}
@@ -196,8 +199,9 @@ public class Server {
 				try {
 					doRead(key);
 				} catch (IOException e) {
+					SocketChannel sc = (SocketChannel) key.channel();
+					saveLog("Connection lost with client "+sc.getRemoteAddress());
 					close(key);
-					System.out.println("Connection lost with client");
 					clients--;
 				}
 			}
@@ -211,7 +215,7 @@ public class Server {
 		}
 		sc.configureBlocking(false);
 		sc.register(selector, SelectionKey.OP_READ, new Attachment(sc));
-		System.out.println("New connection from " + sc.getRemoteAddress());
+		saveLog("New connection from " + sc.getRemoteAddress());
 		clients++;
 	}
 
@@ -223,9 +227,8 @@ public class Server {
 		String line = reader.readLineCRLF();
 
 		try {
-			parseRequest(line, attachment);
+			parseRequest(line, attachment, sc);
 		} catch (Exception e) {
-			//e.printStackTrace();
 			sc.write(charsetUTF8.encode(badRequest));
 			return;
 		}
@@ -233,8 +236,7 @@ public class Server {
 		key.interestOps(SelectionKey.OP_WRITE);
 	}
 
-	private void parseRequest(String request, Attachment attachment) throws IOException {
-		System.out.println("request: " + request);
+	private void parseRequest(String request, Attachment attachment, SocketChannel sc) throws IOException {
 		String firstLine = request.split("\r\n")[0];
 		String[] token = firstLine.split(" ");
 		String cmd = token[0];
@@ -242,10 +244,12 @@ public class Server {
 		String protocol = token[2];
 
 		if (cmd.equals("GET") && requested.equals("Task") && protocol.equals("HTTP/1.1")) {
+			saveLog("Client "+sc.getRemoteAddress()+ " is requesting a task");
 			attachment.requestTask();
 			while (!attachment.getReader().readLineCRLF().equals("")) { /* read useless parameters with the GET request */
 			}
 		} else if (cmd.equals("POST") && requested.equals("Answer") && protocol.equals("HTTP/1.1")) {
+			saveLog("Client "+sc.getRemoteAddress() + " is posting an answer");
 			String answer = parsePOST(attachment);
 			Objects.requireNonNull(answer);
 			attachment.requestAnswer(answer);
@@ -271,7 +275,6 @@ public class Server {
 		}
 		ByteBuffer bb = reader.readBytes(contentLength);
 		bb.flip();
-		// something to do with these??
 		long jobId = bb.getLong();
 		int task = bb.getInt();
 		String answer = charsetUTF8.decode(bb).toString();
@@ -283,8 +286,16 @@ public class Server {
 		return answer;
 	}
 
-	private void saveLog() {
-		// TODO
+	private void saveLog(String log) {
+		System.out.println(log);
+		Path logFilePath = Paths.get(logPath+"log");
+		
+		try (BufferedWriter writer = Files.newBufferedWriter(logFilePath, StandardOpenOption.APPEND,
+		        StandardOpenOption.CREATE); PrintWriter outLog = new PrintWriter(writer)) {
+			 outLog.println(log);
+		} catch (IOException e) {
+			System.err.println(e);
+		}
 	}
 
 	private void saveAnswer(long jobId, int task, String answer) {
@@ -348,7 +359,6 @@ public class Server {
 				job = jobs.poll();
 			}
 			String json = job.nextTask().toJSON();
-			System.out.println(json);
 			jsonBuffer = Server.charsetUTF8.encode(json);
 		}
 
@@ -356,7 +366,6 @@ public class Server {
 		        + "Content-Length: " + jsonBuffer.remaining() + "\r\n\r\n";
 		ByteBuffer headerBuffer = Server.charsetUTF8.encode(header);
 
-		// System.out.println("Task: "+task);
 		while (headerBuffer.hasRemaining()) {
 			sc.write(headerBuffer);
 		}
@@ -375,12 +384,10 @@ public class Server {
 		if (attachment.isRequestingTask()) {
 			attachment.setRequestingTask(false);
 			sendTask((SocketChannel) key.channel());
-			System.out.println("task send");
 			key.interestOps(SelectionKey.OP_READ);
 		} else if (attachment.isSendingPost()) {
 			sendCheckCode(key);
 			key.interestOps(SelectionKey.OP_READ);
-			// key.interestOps(0);
 		}
 	}
 

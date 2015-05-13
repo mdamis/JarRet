@@ -266,16 +266,6 @@ public class Client {
 
 	public static void main(String[] args) throws JsonParseException, IOException, ClassNotFoundException,
 	        IllegalAccessException, InstantiationException, InterruptedException {
-//		String json = "{\"JobId\":11,\"WorkerVersion\":\"1.0\",\"WorkerURL\":\"http://igm.univ-mlv.fr/~carayol/WorkerPrimeV1.jar\",\"WorkerClassName\":\"upem.workerprime.WorkerPrime\",\"Task\":100}";
-//		Task task = parse(json);
-//		System.out.println("jobId: " + task.getJobId());
-//		System.out.println("worker: " + task.getWorkerClassName() + ", " + task.getWorkerVersion() + ", "
-//		        + task.getWorkerURL());
-//		System.out.println("task: " + task.getTask());
-//		Worker worker = null;
-//		worker = WorkerFactory.getWorker(task.getWorkerURL(), task.getWorkerClassName());
-//		System.out.println(worker.compute(task.getTask()));
-		
 		
 		Client client = new Client("BastienMarwin", "ns364759.ip-91-121-196.eu", 8080);
 		//Client client = new Client("BastienMarwin", "localhost", 8080);
