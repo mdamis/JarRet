@@ -44,11 +44,12 @@ public class Server {
 	private final long maxFileSize;
 	private final int comeBackInSeconds;
 	private final ArrayDeque<Job> jobs = new ArrayDeque<Job>();
+	private final Object clientMonitor = new Object();
 	//private final PrintWriter log;
 
 	private boolean shutdown = false;
 	private SelectionKey acceptKey;
-	private int clients = 0;
+	private int nbClients = 0;
 	private int nbAnswers = 0;
 
 	private final Thread consoleThread = new Thread(() -> {
@@ -91,7 +92,9 @@ public class Server {
 	 */
 	private void info() {
 		System.out.println("INFO");
-		System.out.println("Connected clients: "+clients);
+		synchronized (clientMonitor) {
+			System.out.println("Connected clients: "+nbClients);
+		}
 		System.out.println("Next task: - jobId: "+jobs.getFirst().getJobId()+" - task: "+jobs.getFirst().getCurrentTask());
 		System.out.println("Answers received: "+nbAnswers);
 	}
@@ -208,7 +211,9 @@ public class Server {
 					SocketChannel sc = (SocketChannel) key.channel();
 					saveLog("Connection lost with client "+sc.getRemoteAddress());
 					close(key);
-					clients--;
+					synchronized (clientMonitor) {
+						nbClients--;
+					}
 				}
 			}
 			if (key.isValid() && key.isReadable()) {
@@ -218,7 +223,9 @@ public class Server {
 					SocketChannel sc = (SocketChannel) key.channel();
 					saveLog("Connection lost with client "+sc.getRemoteAddress());
 					close(key);
-					clients--;
+					synchronized (clientMonitor) {
+						nbClients--;
+					}
 				}
 			}
 		}
@@ -238,7 +245,9 @@ public class Server {
 		sc.configureBlocking(false);
 		sc.register(selector, SelectionKey.OP_READ, new Attachment(sc));
 		saveLog("New connection from " + sc.getRemoteAddress());
-		clients++;
+		synchronized(clientMonitor) {
+			nbClients++;
+		}
 	}
 
 	/**
