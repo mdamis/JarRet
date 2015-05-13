@@ -86,15 +86,9 @@ public class Server {
 		selectedKeys = selector.selectedKeys();
 	}
 
-	static boolean readFully(ByteBuffer bb, SocketChannel sc) throws IOException {
-		while (sc.read(bb) != -1) {
-			if (!bb.hasRemaining()) {
-				return true;
-			}
-		}
-		return false;
-	}
-
+	/**
+	 * Prints info
+	 */
 	private void info() {
 		System.out.println("INFO");
 		System.out.println("Connected clients: "+clients);
@@ -102,6 +96,9 @@ public class Server {
 		System.out.println("Answers received: "+nbAnswers);
 	}
 
+	/**
+	 * Close the accepting key
+	 */
 	private void shutdown() {
 		System.out.println("SHUTDOWN");
 
@@ -113,6 +110,9 @@ public class Server {
 		shutdown = true;
 	}
 
+	/**
+	 * Close all the keys
+	 */
 	private void shutdownNow() {
 		System.out.println("SHUTDOWN NOW");
 		try {
@@ -131,6 +131,11 @@ public class Server {
 		shutdown = true;
 	}
 
+	/**
+	 * Launches the server
+	 * 
+	 * @throws IOException
+	 */
 	public void launch() throws IOException {
 		consoleThread.setDaemon(true);
 		consoleThread.start();
@@ -149,6 +154,12 @@ public class Server {
 		}
 	}
 
+	/**
+	 * Loads the job from the config file
+	 * 
+	 * @throws JsonParseException
+	 * @throws IOException
+	 */
 	private void loadJobs() throws JsonParseException, IOException {
 		Path jobsConfigPath = Paths.get("config/JarRetJobs.json");
 
@@ -175,6 +186,11 @@ public class Server {
 		}
 	}
 
+	/**
+	 * Process the keys
+	 * 
+	 * @throws IOException
+	 */
 	private void processSelectedKeys() throws IOException {
 		for (SelectionKey key : selectedKeys) {
 
@@ -208,6 +224,12 @@ public class Server {
 		}
 	}
 
+	/**
+	 * Accepts a key
+	 * 
+	 * @param key
+	 * @throws IOException
+	 */
 	private void doAccept(SelectionKey key) throws IOException {
 		SocketChannel sc = ssc.accept();
 		if (sc == null) {
@@ -219,6 +241,12 @@ public class Server {
 		clients++;
 	}
 
+	/**
+	 * reads from the channel of the key
+	 * 
+	 * @param key
+	 * @throws IOException
+	 */
 	private void doRead(SelectionKey key) throws IOException {
 		SocketChannel sc = (SocketChannel) key.channel();
 		Attachment attachment = (Attachment) key.attachment();
@@ -236,6 +264,14 @@ public class Server {
 		key.interestOps(SelectionKey.OP_WRITE);
 	}
 
+	/**
+	 * Parses a request wich the server received
+	 * 
+	 * @param request
+	 * @param attachment
+	 * @param sc
+	 * @throws IOException
+	 */
 	private void parseRequest(String request, Attachment attachment, SocketChannel sc) throws IOException {
 		String firstLine = request.split("\r\n")[0];
 		String[] token = firstLine.split(" ");
@@ -258,6 +294,13 @@ public class Server {
 		}
 	}
 
+	/**
+	 * Parses a POST request
+	 * 
+	 * @param attachment
+	 * @return
+	 * @throws IOException
+	 */
 	private String parsePOST(Attachment attachment) throws IOException {
 		HTTPReader reader = attachment.getReader();
 		String line;
@@ -286,6 +329,11 @@ public class Server {
 		return answer;
 	}
 
+	/**
+	 * Saves the String log into the log file
+	 * 
+	 * @param log
+	 */
 	private void saveLog(String log) {
 		System.out.println(log);
 		Path logFilePath = Paths.get(logPath+"log");
@@ -298,6 +346,13 @@ public class Server {
 		}
 	}
 
+	/**
+	 * Saves the answer into the answer file
+	 * 
+	 * @param jobId
+	 * @param task
+	 * @param answer
+	 */
 	private void saveAnswer(long jobId, int task, String answer) {
 		Path answerFilePath = Paths.get(answersPath + jobId);
 
@@ -309,6 +364,13 @@ public class Server {
 		}
 	}
 
+	/**
+	 * Creates a new server
+	 * 
+	 * @return
+	 * @throws JsonParseException
+	 * @throws IOException
+	 */
 	private static Server create() throws JsonParseException, IOException {
 		Path serverConfigPath = Paths.get("config/JarRetConfig.json");
 
@@ -349,7 +411,13 @@ public class Server {
 
 	}
 
-	public void sendTask(SocketChannel sc) throws IOException {
+	/**
+	 * Sends the task to the client
+	 * 
+	 * @param sc
+	 * @throws IOException
+	 */
+	private void sendTask(SocketChannel sc) throws IOException {
 		Job job = jobs.poll();
 		ByteBuffer jsonBuffer;
 		if (job == null) {
@@ -378,6 +446,12 @@ public class Server {
 		}
 	}
 
+	/**
+	 * Write on the channel of the key
+	 * 
+	 * @param key
+	 * @throws IOException
+	 */
 	private void doWrite(SelectionKey key) throws IOException {
 		Attachment attachment = (Attachment) key.attachment();
 
@@ -391,6 +465,12 @@ public class Server {
 		}
 	}
 
+	/**
+	 * Sends the check code to the client
+	 * 
+	 * @param key
+	 * @throws IOException
+	 */
 	private void sendCheckCode(SelectionKey key) throws IOException {
 		Attachment attachment = (Attachment) key.attachment();
 		SocketChannel sc = (SocketChannel) key.channel();
@@ -407,6 +487,12 @@ public class Server {
 		attachment.clean(sc);
 	}
 
+	/**
+	 * Close the key
+	 * 
+	 * @param key
+	 * @throws IOException
+	 */
 	private void close(SelectionKey key) throws IOException {
 		try{
 			key.channel().close();

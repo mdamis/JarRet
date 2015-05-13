@@ -28,6 +28,10 @@ public class Task {
 		_ComeBackInSeconds = -1;
 	}
 	
+	/**
+	 * Functions used by the JSON parser
+	 */
+	
 	public long getJobId() {
 		return Long.parseLong(_JobId);
 	}
@@ -117,6 +121,12 @@ public class Task {
 		return task;
 	}
 	
+	/**
+	 * Creates a JSOn String 
+	 * 
+	 * @return
+	 * @throws IOException
+	 */
 	public String toJSON() throws IOException {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		JsonFactory jf = new JsonFactory();

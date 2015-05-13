@@ -30,6 +30,10 @@ public class Job {
 		this.currentTask = Objects.requireNonNull(currentTask);
 	}
 
+	/**
+	 * Functions used by the JSON parser
+	 */
+	
 	public int getCurrentTask() {
 		return currentTask;
 	}
@@ -66,6 +70,14 @@ public class Job {
 	    return isFinished;
     }
 
+	/**
+	 * Parses a json object to get the job
+	 * 
+	 * @param jp
+	 * @return
+	 * @throws JsonParseException
+	 * @throws IOException
+	 */
 	public static Job parseJSON(JsonParser jp) throws JsonParseException, IOException {
 	
 		String jobId = null;
@@ -109,12 +121,21 @@ public class Job {
 		return new Job(jobId, jobTaskNumber, jobDescription, jobPriority, workerVersion, workerURL, workerClassName, 0);
 	}
 
+	/**
+	 * Creates the next task of the job
+	 * 
+	 * @return
+	 * @throws IOException
+	 */
 	public Task nextTask() throws IOException {
 		Task task = new Task(jobId, workerVersion, workerURL, workerClassName, currentTask);
 		updateCurrentTask();
 		return task;
 	}
 	
+	/**
+	 * Increments currentTask or set isFinished to true if all the tasks are done
+	 */
 	private void updateCurrentTask() {
 	    currentTask++;
 	    if(currentTask > Integer.parseInt(jobTaskNumber)) {
