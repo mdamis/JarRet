@@ -550,7 +550,17 @@ public class Server {
 		}
 	}
 
+	private static void usage() {
+		System.out.println("ServerJarRet");
+	}
+	
 	public static void main(String[] args) throws NumberFormatException, IOException {
+		
+		if (args.length != 0) {
+			usage();
+			return;
+		}
+		
 		Server.create().launch();
 	}
 

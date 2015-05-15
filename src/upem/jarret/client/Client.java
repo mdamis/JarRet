@@ -269,11 +269,19 @@ public class Client {
 		}
 	}
 
+	private static void usage() {
+		System.out.println("ClientJarRet clientId serverAddress serverPort");
+	}
+	
 	public static void main(String[] args) throws JsonParseException, IOException, ClassNotFoundException,
 	        IllegalAccessException, InstantiationException, InterruptedException {
 		
-		Client client = new Client("BastienMarwin", "ns364759.ip-91-121-196.eu", 8080);
-		//Client client = new Client("BastienMarwin", "localhost", 8080);
+		if (args.length != 3) {
+			usage();
+			return;
+		}
+		
+		Client client = new Client(args[0], args[1], Integer.valueOf(args[2]));
 		client.interact();
 	}
 
