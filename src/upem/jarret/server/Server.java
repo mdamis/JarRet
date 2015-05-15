@@ -11,6 +11,7 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
@@ -38,7 +39,6 @@ public class Server {
 	private final Selector selector;
 	private final Set<SelectionKey> selectedKeys;
 
-	private final int port;
 	private final String logPath;
 	private final String answersPath;
 	private final long maxFileSize;
@@ -75,7 +75,6 @@ public class Server {
 
 	private Server(int port, String logPath, String answersPath, long maxFileSize, int comeBackInSeconds)
 			throws IOException {
-		this.port = port;
 		this.logPath = logPath;
 		this.answersPath = answersPath;
 		this.maxFileSize = maxFileSize;
@@ -386,13 +385,26 @@ public class Server {
 	 * @param jobId
 	 * @param task
 	 * @param answer
+	 * @throws IOException 
 	 */
-	private void saveAnswer(long jobId, int task, String answer) {
-		Path answerFilePath = Paths.get(answersPath + jobId);
+	private void saveAnswer(long jobId, int task, String answer) throws IOException {
+		int fileNumber = 1;
+		long size = 0;
+		Path answerFilePath;
+		answer += '\n';
+
+		do {
+			answerFilePath = Paths.get(answersPath + jobId + "_" + fileNumber++);
+			if (Files.exists(answerFilePath, LinkOption.NOFOLLOW_LINKS)) {
+				size = Files.size(answerFilePath);
+			} else {
+				break;
+			}
+		} while (size > maxFileSize);
 
 		try (BufferedWriter writer = Files.newBufferedWriter(answerFilePath, StandardOpenOption.APPEND,
-				StandardOpenOption.CREATE); PrintWriter out = new PrintWriter(writer)) {
-			out.println(answer + '\n');
+		        StandardOpenOption.CREATE); PrintWriter out = new PrintWriter(writer)) {
+			out.println(answer);
 		} catch (IOException e) {
 			System.err.println(e);
 		}

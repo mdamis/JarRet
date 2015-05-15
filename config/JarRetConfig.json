@@ -2,6 +2,6 @@
  "Port" :  8080  ,
  "LogDirectory" : "log/",
  "AnswersDirectory" : "answers/",
- "MaxFileSize" : 0,
+ "MaxFileSize" : 1024,
  "ComeBackInSeconds" : 300
 }
