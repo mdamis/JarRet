@@ -19,7 +19,6 @@ import java.util.Objects;
 import java.util.Scanner;
 import java.util.Set;
 
-import upem.jarret.http.HTTPReader;
 import upem.jarret.http.HTTPReaderServer;
 import upem.jarret.job.Job;
 import util.JsonTools;
@@ -334,7 +333,7 @@ public class Server {
 	 * @throws IOException
 	 */
 	private String parsePOST(Attachment attachment) throws IOException {
-		HTTPReader reader = attachment.getReader();
+		HTTPReaderServer reader = attachment.getReader();
 		if(!attachment.isReadingAnswer()) {
 			String line;
 			while (!(line = reader.readLineCRLF()).equals("")) {

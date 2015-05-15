@@ -8,6 +8,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 import java.rmi.UnexpectedException;
+import java.util.HashMap;
 
 import upem.jarret.http.HTTPException;
 import upem.jarret.http.HTTPHeader;
@@ -27,6 +28,7 @@ public class Client {
 
 	private final String id;
 	private final InetSocketAddress sa;
+	private final HashMap<String, Worker> workers = new HashMap<>();
 	private SocketChannel sc;
 
 	public Client(String id, String serverAddress, int port) throws IOException {
@@ -197,10 +199,13 @@ public class Client {
 				}
 			}
 			System.out.println("Task received: "+task.toJSON());
-			if (worker == null || task.getWorkerVersion() != worker.getVersion()
-			        || task.getJobId() != worker.getJobId()) {
-				System.out.println("Retrieving worker");
-				worker = WorkerFactory.getWorker(task.getWorkerURL(), task.getWorkerClassName());
+			System.out.println("Retrieving worker");
+			if (worker == null ||  (task.getWorkerClassName() != worker.getClass().getName() && task.getWorkerVersion() != worker.getVersion())) {
+				worker = workers.get(task.getWorkerClassName());
+				if(worker == null || task.getWorkerVersion() != worker.getVersion()) {
+					worker = WorkerFactory.getWorker(task.getWorkerURL(), task.getWorkerClassName());
+					workers.put(task.getWorkerClassName(), worker);
+				}
 			}
 			String answer;
 			try {

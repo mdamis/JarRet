@@ -22,6 +22,7 @@ public class HTTPReaderServer extends HTTPReader {
 	 * The method never reads from the socket as long as the buffer is not empty
 	 * @throws IOException HTTPException if the connection is closed before a line could be read
 	 */
+	@Override
 	public String readLineCRLF() throws IOException {
 		in.flip();
 
@@ -58,6 +59,7 @@ public class HTTPReaderServer extends HTTPReader {
 	 * @return a ByteBuffer in write-mode containing size bytes read on the socket
 	 * @throws IOException HTTPException is the connection is closed before all bytes could be read
 	 */
+	@Override
 	public ByteBuffer readBytes(int size) throws IOException {
 		if(currentAnswer == null || currentAnswer.capacity() != size) {
 			currentAnswer = ByteBuffer.allocate(size);
