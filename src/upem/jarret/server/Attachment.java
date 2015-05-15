@@ -3,16 +3,23 @@ package upem.jarret.server;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 
-import upem.jarret.http.HTTPReader;
+import upem.jarret.http.HTTPReaderServer;
 
 public class Attachment {
-	private HTTPReader reader;
+	private HTTPReaderServer reader;
 	private boolean requestingTask = false;
 	private boolean sendingPost = false;
+	private boolean readingRequest = true;
+	private boolean parsingRequest = false;
+	private boolean readingAnswer = false;
+	private String request = null;
 	private String answer = null;
+	private final ByteBuffer in;
+	private int contentLength;
 
 	public Attachment(SocketChannel sc) {
-		reader = new HTTPReader(sc, ByteBuffer.allocate(50));
+		in = ByteBuffer.allocate(1024);
+		reader = new HTTPReaderServer(sc, ByteBuffer.allocate(50), in);
 	}
 
 	/**
@@ -72,7 +79,7 @@ public class Attachment {
 	 * 
 	 * @return
 	 */
-	public HTTPReader getReader() {
+	public HTTPReaderServer getReader() {
 		return reader;
 	}
 
@@ -101,7 +108,52 @@ public class Attachment {
 	 */
 	public void clean(SocketChannel sc) {
 		setSendingPost(false);
-		reader = new HTTPReader(sc, ByteBuffer.allocate(50));
+		in.clear();
+		reader = new HTTPReaderServer(sc, ByteBuffer.allocate(50), in);
+	}
+
+	public ByteBuffer getIn() {
+		return in;
+	}
+	
+	public boolean isReadingRequest() {
+		return readingRequest;
+	}
+
+	public void setReadingRequest(boolean b) {
+		readingRequest = b;
+	}
+
+	public String getRequest() {
+		return request;
+	}
+	
+	public void setRequest(String request) {
+		this.request = request;
+	}
+
+	public boolean isParsingRequest() {
+		return parsingRequest;
+	}
+
+	public void setParsingRequest(boolean b) {
+		parsingRequest = b;
+	}
+
+	public boolean isReadingAnswer() {
+		return readingAnswer;
+	}
+
+	public void setReadingAnswer(boolean b) {
+		this.readingAnswer = b;
+	}
+
+	public int getContentLength() {
+		return contentLength;
+	}
+
+	public void setContentLength(int length) {
+		contentLength = length;
 	}
 
 }

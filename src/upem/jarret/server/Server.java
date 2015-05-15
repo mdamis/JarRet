@@ -20,6 +20,7 @@ import java.util.Scanner;
 import java.util.Set;
 
 import upem.jarret.http.HTTPReader;
+import upem.jarret.http.HTTPReaderServer;
 import upem.jarret.job.Job;
 import util.JsonTools;
 
@@ -74,7 +75,7 @@ public class Server {
 	});
 
 	private Server(int port, String logPath, String answersPath, long maxFileSize, int comeBackInSeconds)
-	        throws IOException {
+			throws IOException {
 		this.port = port;
 		this.logPath = logPath;
 		this.answersPath = answersPath;
@@ -149,7 +150,7 @@ public class Server {
 		Set<SelectionKey> selectedKeys = selector.selectedKeys();
 
 		loadJobs();
-		
+
 		while (!selector.keys().isEmpty() || !shutdown) {
 			selector.select(300);
 			processSelectedKeys();
@@ -259,12 +260,24 @@ public class Server {
 	private void doRead(SelectionKey key) throws IOException {
 		SocketChannel sc = (SocketChannel) key.channel();
 		Attachment attachment = (Attachment) key.attachment();
-		HTTPReader reader = attachment.getReader();
+		HTTPReaderServer reader = attachment.getReader();
 
-		String line = reader.readLineCRLF();
+		sc.read(attachment.getIn());
+
+		if(attachment.isReadingRequest()) {
+			try{
+				attachment.setRequest(reader.readLineCRLF());
+				attachment.setReadingRequest(false);
+			} catch(IllegalStateException e) {
+				return;
+			}
+		}
 
 		try {
-			parseRequest(line, attachment, sc);
+			parseRequest(attachment, sc);
+		} catch(IllegalStateException e) {
+			System.out.println("resuqesting task !");
+			return;
 		} catch (Exception e) {
 			sc.write(charsetUTF8.encode(badRequest));
 			return;
@@ -281,7 +294,8 @@ public class Server {
 	 * @param sc
 	 * @throws IOException
 	 */
-	private void parseRequest(String request, Attachment attachment, SocketChannel sc) throws IOException {
+	private void parseRequest(Attachment attachment, SocketChannel sc) throws IOException {
+		String request = attachment.getRequest();
 		String firstLine = request.split("\r\n")[0];
 		String[] token = firstLine.split(" ");
 		String cmd = token[0];
@@ -289,15 +303,24 @@ public class Server {
 		String protocol = token[2];
 
 		if (cmd.equals("GET") && requested.equals("Task") && protocol.equals("HTTP/1.1")) {
-			saveLog("Client "+sc.getRemoteAddress()+ " is requesting a task");
+			if(!attachment.isParsingRequest()){
+				saveLog("Client "+sc.getRemoteAddress()+ " is requesting a task");
+			}
 			attachment.requestTask();
-			while (!attachment.getReader().readLineCRLF().equals("")) { /* read useless parameters with the GET request */
+			attachment.setParsingRequest(true);
+			if (attachment.isParsingRequest()) { 
+				while(!attachment.getReader().readLineCRLF().equals("")){/** read useless parameters og GET request **/}
+				attachment.setParsingRequest(false);
 			}
 		} else if (cmd.equals("POST") && requested.equals("Answer") && protocol.equals("HTTP/1.1")) {
-			saveLog("Client "+sc.getRemoteAddress() + " is posting an answer");
+			if(!attachment.isParsingRequest()) {
+				saveLog("Client "+sc.getRemoteAddress() + " is posting an answer");
+			}
+			attachment.setParsingRequest(true);
 			String answer = parsePOST(attachment);
 			Objects.requireNonNull(answer);
 			attachment.requestAnswer(answer);
+			attachment.setParsingRequest(false);
 		} else {
 			throw new IllegalArgumentException();
 		}
@@ -312,20 +335,23 @@ public class Server {
 	 */
 	private String parsePOST(Attachment attachment) throws IOException {
 		HTTPReader reader = attachment.getReader();
-		String line;
-		int contentLength = 0;
-		while (!(line = reader.readLineCRLF()).equals("")) {
-			String[] token = line.split(": ");
-			if (token[0].equals("Content-Length")) {
-				contentLength = Integer.parseInt(token[1]);
-			}
-			if (token[0].equals("Content-Type")) {
-				if (!token[1].equals("application/json")) {
-					throw new IllegalArgumentException();
+		if(!attachment.isReadingAnswer()) {
+			String line;
+			while (!(line = reader.readLineCRLF()).equals("")) {
+				String[] token = line.split(": ");
+				if (token[0].equals("Content-Length")) {
+					attachment.setContentLength(Integer.parseInt(token[1]));
+				}
+				if (token[0].equals("Content-Type")) {
+					if (!token[1].equals("application/json")) {
+						throw new IllegalArgumentException();
+					}
 				}
 			}
+			attachment.setReadingAnswer(true);
 		}
-		ByteBuffer bb = reader.readBytes(contentLength);
+		ByteBuffer bb = reader.readBytes(attachment.getContentLength());
+		attachment.setReadingAnswer(false);
 		bb.flip();
 		long jobId = bb.getLong();
 		int task = bb.getInt();
@@ -346,10 +372,10 @@ public class Server {
 	private void saveLog(String log) {
 		System.out.println(log);
 		Path logFilePath = Paths.get(logPath+"log");
-		
+
 		try (BufferedWriter writer = Files.newBufferedWriter(logFilePath, StandardOpenOption.APPEND,
-		        StandardOpenOption.CREATE); PrintWriter outLog = new PrintWriter(writer)) {
-			 outLog.println(log);
+				StandardOpenOption.CREATE); PrintWriter outLog = new PrintWriter(writer)) {
+			outLog.println(log);
 		} catch (IOException e) {
 			System.err.println(e);
 		}
@@ -366,7 +392,7 @@ public class Server {
 		Path answerFilePath = Paths.get(answersPath + jobId);
 
 		try (BufferedWriter writer = Files.newBufferedWriter(answerFilePath, StandardOpenOption.APPEND,
-		        StandardOpenOption.CREATE); PrintWriter out = new PrintWriter(writer)) {
+				StandardOpenOption.CREATE); PrintWriter out = new PrintWriter(writer)) {
 			out.println(answer + '\n');
 		} catch (IOException e) {
 			System.err.println(e);
@@ -440,7 +466,7 @@ public class Server {
 		}
 
 		String header = "HTTP/1.1 200 OK\r\n" + "Content-Type: application/json; charset=utf-8\r\n"
-		        + "Content-Length: " + jsonBuffer.remaining() + "\r\n\r\n";
+				+ "Content-Length: " + jsonBuffer.remaining() + "\r\n\r\n";
 		ByteBuffer headerBuffer = Server.charsetUTF8.encode(header);
 
 		while (headerBuffer.hasRemaining()) {
@@ -472,6 +498,8 @@ public class Server {
 			sendCheckCode(key);
 			key.interestOps(SelectionKey.OP_READ);
 		}
+
+		attachment.setReadingRequest(true);
 	}
 
 	/**
